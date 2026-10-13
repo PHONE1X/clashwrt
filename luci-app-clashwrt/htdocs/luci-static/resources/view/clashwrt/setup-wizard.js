@@ -7,7 +7,7 @@
 'require dom';
 'require clashwrt.generator as gen';
 
-var UI_VERSION = '0.2.0';
+var UI_VERSION = '0.2.1';
 
 var STAGING = '/tmp/clashwrt-staging';
 var CONFCTL = '/usr/libexec/clashwrt/confctl.sh';
@@ -39,9 +39,8 @@ function step(num, title, intro, open, kids) {
 	}, [
 		E('summary', { 'style': 'cursor:pointer;font-weight:bold;font-size:110%' },
 			num + '. ' + title),
-		E('div', { 'style': 'opacity:0.75;margin:4px 0' }, intro),
-		kids
-	]);
+		E('div', { 'style': 'opacity:0.75;margin:4px 0' }, intro)
+	].concat(kids));
 }
 
 function more(title, text) {
