@@ -842,3 +842,33 @@ msgstr "Показать все сайты: %d"
 
 msgid "Show only the first %d"
 msgstr "Показать только первые %d"
+
+msgid "Rename"
+msgstr "Переименовать"
+
+msgid "Renaming…"
+msgstr "Переименование…"
+
+msgid "New name for \"%s\":"
+msgstr "Новое имя для «%s»:"
+
+msgid "Rename backup"
+msgstr "Переименовать копию"
+
+msgid "Deleting…"
+msgstr "Удаление…"
+
+msgid "Delete backup"
+msgstr "Удалить копию"
+
+msgid "Use a name like config-before-upgrade.yaml: it must start with \"config-\", end with \".yaml\", and contain only letters, digits, dots, dashes and underscores."
+msgstr "Используйте имя вида config-before-upgrade.yaml: оно должно начинаться с «config-», заканчиваться на «.yaml» и содержать только латинские буквы, цифры, точки, дефисы и подчёркивания."
+
+msgid "Delete the backup \"%s\"? This cannot be undone."
+msgstr "Удалить резервную копию «%s»? Это действие необратимо."
+
+msgid "A backup with that name already exists."
+msgstr "Резервная копия с таким именем уже существует."
+
+msgid "The new name is the same as the old one."
+msgstr "Новое имя совпадает со старым."

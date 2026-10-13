@@ -824,3 +824,33 @@ msgstr ""
 
 msgid "Show only the first %d"
 msgstr ""
+
+msgid "Rename"
+msgstr ""
+
+msgid "Renaming…"
+msgstr ""
+
+msgid "New name for \"%s\":"
+msgstr ""
+
+msgid "Rename backup"
+msgstr ""
+
+msgid "Deleting…"
+msgstr ""
+
+msgid "Delete backup"
+msgstr ""
+
+msgid "Use a name like config-before-upgrade.yaml: it must start with \"config-\", end with \".yaml\", and contain only letters, digits, dots, dashes and underscores."
+msgstr ""
+
+msgid "Delete the backup \"%s\"? This cannot be undone."
+msgstr ""
+
+msgid "A backup with that name already exists."
+msgstr ""
+
+msgid "The new name is the same as the old one."
+msgstr ""

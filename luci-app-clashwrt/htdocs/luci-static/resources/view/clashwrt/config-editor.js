@@ -6,7 +6,7 @@
 'require dom';
 'require clashwrt.generator as gen';
 
-var UI_VERSION = '0.1.6';
+var UI_VERSION = '0.1.7';
 
 var STAGING = '/tmp/clashwrt-staging';
 var CONFCTL = '/usr/libexec/clashwrt/confctl.sh';
@@ -400,39 +400,148 @@ return view.extend({
 			E('button', { 'type': 'button', 'class': 'cbi-button cbi-button-add', 'click': addSite }, _('Add'))
 		]);
 
-		var restoreRow = null;
-		if (backups.length) {
-			var sel = E('select', { 'class': 'cbi-input-select' },
-				backups.map(function (b) { return E('option', { 'value': b }, b); }));
+		var BACKUP_NAME_RE = /^config-[A-Za-z0-9._-]+\.yaml$/;
 
-			restoreRow = E('div', { 'style': 'margin-top:1em' }, [
-				E('label', { 'style': 'margin-right:6px' }, _('Backups:')),
-				sel,
-				' ',
-				E('button', {
-					'class': 'cbi-button cbi-button-neutral',
-					'click': function (ev) {
-						var b = ev.target;
-						busy(b, true);
-						dom.content(out, E('em', {}, _('Restoring…')));
-						confctl(['restore', sel.value])
+		var sel = E('select', { 'class': 'cbi-input-select' });
+		var restoreRow = E('div', { 'style': 'margin-top:1em' });
+
+		/* Repopulate the dropdown. `pick` is the entry to select if it still
+		 * exists; otherwise the one at `index` (so deleting the middle of the
+		 * list lands on its neighbour), clamped to the end. */
+		function setBackups(list, pick, index) {
+			backups = list;
+			dom.content(sel, list.map(function (b) { return E('option', { 'value': b }, b); }));
+			if (list.length) {
+				var at = list.indexOf(pick);
+				if (at < 0) at = Math.min(Math.max(index || 0, 0), list.length - 1);
+				sel.selectedIndex = at;
+			}
+			restoreRow.style.display = list.length ? '' : 'none';
+		}
+
+		function reloadBackups(pick, index) {
+			return confctl(['backups']).then(function (res) {
+				setBackups(textOf(res).split('\n').filter(function (x) { return x.trim().length; }), pick, index);
+			});
+		}
+
+		function backupModal(title, body, label, cls, action) {
+			ui.showModal(title, [
+				body,
+				E('div', { 'class': 'right' }, [
+					E('button', { 'class': 'cbi-button', 'click': ui.hideModal }, _('Cancel')),
+					' ',
+					E('button', {
+						'class': 'cbi-button ' + cls,
+						'click': function () { action(); }
+					}, label)
+				])
+			]);
+		}
+
+		var btnRestore = E('button', {
+			'class': 'cbi-button cbi-button-neutral',
+			'click': function (ev) {
+				var b = ev.target;
+				busy(b, true);
+				dom.content(out, E('em', {}, _('Restoring…')));
+				confctl(['restore', sel.value])
+					.then(function (res) {
+						say(out, ok(res), textOf(res));
+						return confctl(['read']);
+					})
+					.then(function (res) {
+						badLine = 0;
+						area.value = res.stdout || '';
+						repaint();
+					})
+					.catch(function (e) {
+						say(out, false, textOf(e) || String(e.message || e));
+					})
+					.finally(function () { busy(b, false); });
+			}
+		}, _('Restore selected'));
+
+		var btnRename = E('button', {
+			'class': 'cbi-button cbi-button-neutral',
+			'style': 'margin-left:6px',
+			'click': function () {
+				var oldName = sel.value;
+				if (!oldName) return;
+				var input = E('input', {
+					'type': 'text', 'class': 'cbi-input-text', 'style': 'width:100%',
+					'value': oldName, 'spellcheck': 'false'
+				});
+				var err = E('div', { 'style': 'color:#c5221f;min-height:1.2em;margin-top:4px' });
+
+				var go = function () {
+					var nn = input.value.trim();
+					if (nn === oldName) {
+						dom.content(err, _('The new name is the same as the old one.'));
+						return;
+					}
+					if (!BACKUP_NAME_RE.test(nn) || nn.length > 100) {
+						dom.content(err, _('Use a name like config-before-upgrade.yaml: it must start with "config-", end with ".yaml", and contain only letters, digits, dots, dashes and underscores.'));
+						return;
+					}
+					if (backups.indexOf(nn) >= 0) {
+						dom.content(err, _('A backup with that name already exists.'));
+						return;
+					}
+					ui.hideModal();
+					dom.content(out, E('em', {}, _('Renaming…')));
+					confctl(['rename-backup', oldName, nn])
+						.then(function (res) {
+							say(out, ok(res), textOf(res));
+							return reloadBackups(ok(res) ? nn : oldName, sel.selectedIndex);
+						})
+						.catch(function (e) {
+							say(out, false, textOf(e) || String(e.message || e));
+						});
+				};
+
+				input.addEventListener('keydown', function (ev) {
+					if (ev.key === 'Enter') { ev.preventDefault(); go(); }
+				});
+
+				backupModal(_('Rename backup'), E('div', {}, [
+					E('p', {}, _('New name for "%s":').format(oldName)),
+					input,
+					err
+				]), _('Rename'), 'cbi-button-positive', go);
+				input.focus();
+			}
+		}, _('Rename backup'));
+
+		var btnDelete = E('button', {
+			'class': 'cbi-button cbi-button-negative',
+			'style': 'margin-left:6px',
+			'click': function () {
+				var name = sel.value;
+				var index = sel.selectedIndex;
+				if (!name) return;
+				backupModal(_('Delete backup'),
+					E('p', {}, _('Delete the backup "%s"? This cannot be undone.').format(name)),
+					_('Delete'), 'cbi-button-negative', function () {
+						ui.hideModal();
+						dom.content(out, E('em', {}, _('Deleting…')));
+						confctl(['delete-backup', name])
 							.then(function (res) {
 								say(out, ok(res), textOf(res));
-								return confctl(['read']);
-							})
-							.then(function (res) {
-								badLine = 0;
-								area.value = res.stdout || '';
-								repaint();
+								return reloadBackups(null, index);
 							})
 							.catch(function (e) {
 								say(out, false, textOf(e) || String(e.message || e));
-							})
-							.finally(function () { busy(b, false); });
-					}
-				}, _('Restore selected'))
-			]);
-		}
+							});
+					});
+			}
+		}, _('Delete backup'));
+
+		dom.content(restoreRow, [
+			E('label', { 'style': 'margin-right:6px' }, _('Backups:')),
+			sel, ' ', btnRestore, btnRename, btnDelete
+		]);
+		setBackups(backups, null, 0);
 
 		return E('div', { 'class': 'cbi-map' }, [
 			E('h2', {}, [
@@ -446,7 +555,7 @@ return view.extend({
 				editorBox,
 				E('div', { 'style': 'margin-top:8px' }, [ btnValidate, btnSave, btnReload ]),
 				siteRow,
-				restoreRow || '',
+				restoreRow,
 				out
 			])
 		]);
