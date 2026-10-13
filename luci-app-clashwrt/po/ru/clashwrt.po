@@ -894,9 +894,6 @@ msgstr "Есть обновление"
 msgid "Status and kill switches. Everything else is in the tabs above."
 msgstr "Состояние и аварийные выключатели. Всё остальное — на вкладках выше."
 
-msgid "Proxy switch"
-msgstr "Выключатель прокси"
-
 msgid "Automatic bypass"
 msgstr "Сторож"
 

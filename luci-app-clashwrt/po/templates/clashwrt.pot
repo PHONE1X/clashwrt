@@ -888,9 +888,6 @@ msgstr ""
 msgid "Status and kill switches. Everything else is in the tabs above."
 msgstr ""
 
-msgid "Proxy switch"
-msgstr ""
-
 msgid "Automatic bypass"
 msgstr ""
 

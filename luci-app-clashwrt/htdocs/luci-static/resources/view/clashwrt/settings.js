@@ -11,7 +11,7 @@
 'require clashwrt.dashui as dashui';
 'require clashwrt.power as power';
 
-var UI_VERSION = '0.2.2';
+var UI_VERSION = '0.2.3';
 
 var callStatus = function () {
 	return fs.exec('/usr/libexec/clashwrt/fw.sh', ['status'])
@@ -113,7 +113,7 @@ function renderStatus(text) {
 
 	var rows = [
 		[_('Mode'), modeCell],
-		[_('Proxy switch'), badge(st['enabled'] === '1', st['enabled'] === '1' ? _('on') : _('off'))],
+		[_('Proxy'), badge(st['enabled'] === '1', st['enabled'] === '1' ? _('on') : _('off'))],
 		[_('Automatic bypass'), st['autobypass'] === 'yes'
 			? pill('#fef7e0', '#b06000', _('active'))
 			: pill('#f1f3f4', '#5f6368', _('no'))],

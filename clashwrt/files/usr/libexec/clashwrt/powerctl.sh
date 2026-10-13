@@ -39,11 +39,37 @@ die() {
 	exit 1
 }
 
-# Held by this process and released when it exits. Skipped where `lock` does
-# not exist (a bare shell, a test).
+# One switch at a time. The wait is bounded (CLASHWRT_LOCK_WAIT seconds,
+# default 10) so a stuck holder shows up as an error in LuCI rather than a
+# request that never returns. The lock belongs to this process and goes with
+# it, however it dies.
 take_lock() {
-	command -v lock >/dev/null 2>&1 || return 0
-	lock "$LOCKFILE"
+	local wait_s="${CLASHWRT_LOCK_WAIT:-10}" i=0 pid
+	case "$wait_s" in ''|*[!0-9]*) wait_s=10 ;; esac
+	mkdir -p "${LOCKFILE%/*}" 2>/dev/null
+
+	# A directory is the lock and its owner's pid says whether the owner is
+	# still alive. A holder that was killed leaves a dead pid behind, which the
+	# next caller clears instead of waiting for it forever. (flock and lock(1)
+	# are not used: both can outlive a killed holder through a child process.)
+	LOCKDIR="$LOCKFILE.d"
+	while ! mkdir "$LOCKDIR" 2>/dev/null; do
+		pid="$(cat "$LOCKDIR/pid" 2>/dev/null)"
+		if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+			rm -rf "$LOCKDIR"
+			continue
+		fi
+		if [ -z "$pid" ] && [ "$i" -ge 5 ]; then
+			rm -rf "$LOCKDIR"
+			continue
+		fi
+		[ "$i" -lt "$wait_s" ] || die "busy: another clashwrt switch operation held the lock for ${wait_s}s"
+		sleep 1
+		i=$((i + 1))
+	done
+	echo "$$" > "$LOCKDIR/pid"
+	trap 'rm -rf "$LOCKDIR"' EXIT
+	trap 'exit 1' HUP INT TERM
 }
 
 proxy_enabled() { [ "$(uci -q get "$NAME.config.enabled")" = "1" ]; }

@@ -61,11 +61,36 @@ die() {
 
 # Every action that changes the ruleset takes one lock, so the watchdog, the
 # init script, hotplug and LuCI cannot interleave a flush with an apply. The
-# lock is held by this process and dies with it; where `lock` is missing
-# (a bare shell, a test) it is simply skipped.
+# wait is bounded: a caller that cannot get the lock in CLASHWRT_LOCK_WAIT
+# seconds (default 30) fails with a message instead of hanging whoever called
+# it. The lock is released on exit or signal, and a dead owner's lock is cleared.
 fw_lock() {
-	command -v lock >/dev/null 2>&1 || return 0
-	lock "$LOCKFILE"
+	local wait_s="${CLASHWRT_LOCK_WAIT:-30}" i=0 pid
+	case "$wait_s" in ''|*[!0-9]*) wait_s=30 ;; esac
+	mkdir -p "${LOCKFILE%/*}" 2>/dev/null
+
+	# A directory is the lock and its owner's pid says whether the owner is
+	# still alive. A holder that was killed leaves a dead pid behind, which the
+	# next caller clears instead of waiting for it forever. (flock and lock(1)
+	# are not used: both can outlive a killed holder through a child process.)
+	LOCKDIR="$LOCKFILE.d"
+	while ! mkdir "$LOCKDIR" 2>/dev/null; do
+		pid="$(cat "$LOCKDIR/pid" 2>/dev/null)"
+		if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+			rm -rf "$LOCKDIR"
+			continue
+		fi
+		if [ -z "$pid" ] && [ "$i" -ge 5 ]; then
+			rm -rf "$LOCKDIR"
+			continue
+		fi
+		[ "$i" -lt "$wait_s" ] || die "busy: another clashwrt firewall operation held the lock for ${wait_s}s"
+		sleep 1
+		i=$((i + 1))
+	done
+	echo "$$" > "$LOCKDIR/pid"
+	trap 'rm -rf "$LOCKDIR"' EXIT
+	trap 'exit 1' HUP INT TERM
 }
 
 # ---------------------------------------------------------------------------
