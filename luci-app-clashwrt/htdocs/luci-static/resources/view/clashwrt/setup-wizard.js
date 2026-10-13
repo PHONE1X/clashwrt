@@ -13,6 +13,7 @@ var STAGING = '/tmp/clashwrt-staging';
 var CONFCTL = '/usr/libexec/clashwrt/confctl.sh';
 
 var DEFAULT_UDP_FILTER = '(?i)(hysteria|hy2|tuic)';
+var SITE_CHIP_CAP = 50;
 
 function say(node, ok, text) {
 	dom.content(node, E('div', {
@@ -175,6 +176,7 @@ return view.extend({
 
 		/* ---- sites ---- */
 		var sites = [];
+		var showAllSites = false;
 		var siteInput = E('input', {
 			'type': 'text', 'class': 'cbi-input-text', 'style': 'width:24em',
 			'placeholder': _('https://example.com or a service name, e.g. youtube')
@@ -195,7 +197,13 @@ return view.extend({
 		}
 
 		function renderChips() {
-			dom.content(chipBox, sites.length ? sites.map(function (d) {
+			if (!sites.length) {
+				dom.content(chipBox, E('em', { 'style': 'opacity:0.6' }, _('No sites added.')));
+				return;
+			}
+			var capped = !showAllSites && sites.length > SITE_CHIP_CAP;
+			var shown = capped ? sites.slice(0, SITE_CHIP_CAP) : sites;
+			var nodes = shown.map(function (d) {
 				return E('span', {
 					'style': 'display:inline-block;margin:2px 6px 2px 0;padding:2px 4px 2px 8px;' +
 						'border:1px solid rgba(127,127,127,0.5);border-radius:12px;font-family:monospace'
@@ -211,7 +219,19 @@ return view.extend({
 						}
 					}, '×')
 				]);
-			}) : E('em', { 'style': 'opacity:0.6' }, _('No sites added.')));
+			});
+			if (sites.length > SITE_CHIP_CAP)
+				nodes.push(E('button', {
+					'type': 'button',
+					'class': 'cbi-button',
+					'click': function () {
+						showAllSites = !showAllSites;
+						renderChips();
+					}
+				}, capped
+					? _('Show all %d sites').format(sites.length)
+					: _('Show only the first %d').format(SITE_CHIP_CAP)));
+			dom.content(chipBox, nodes);
 		}
 
 		function previewSite() {

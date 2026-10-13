@@ -836,3 +836,9 @@ msgstr "В редактор добавлено доменов: %d — %s. Пок
 
 msgid "Add site:"
 msgstr "Добавить сайт:"
+
+msgid "Show all %d sites"
+msgstr "Показать все сайты: %d"
+
+msgid "Show only the first %d"
+msgstr "Показать только первые %d"

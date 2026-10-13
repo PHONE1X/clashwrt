@@ -818,3 +818,9 @@ msgstr ""
 
 msgid "Add site:"
 msgstr ""
+
+msgid "Show all %d sites"
+msgstr ""
+
+msgid "Show only the first %d"
+msgstr ""
