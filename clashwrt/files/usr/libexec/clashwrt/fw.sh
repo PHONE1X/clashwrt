@@ -589,11 +589,22 @@ do_flush() {
 }
 
 do_status() {
+	local wd eg
 	load_cfg
 	resolve_ports
 	echo "enabled:      $enabled"
 	echo -n "autobypass:   "
 	[ -e "$FLAG" ] && echo yes || echo no
+	config_get wd config watchdog 0
+	echo -n "watchdog:     "
+	[ "$wd" = "1" ] && echo on || echo off
+	echo -n "egress:       "
+	if [ -e "$FLAG" ]; then
+		echo bypassed
+	else
+		eg="$(sed -n 's/^state:[[:space:]]*//p' "$RUNDIR/watchdog.state" 2>/dev/null | head -n1)"
+		echo "${eg:-unknown}"
+	fi
 	echo "mode:         $mode"
 	echo "lan_device:   $lan_device"
 	echo "wan_device:   ${wan_device:-unknown}"

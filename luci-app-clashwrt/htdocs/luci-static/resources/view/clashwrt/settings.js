@@ -11,7 +11,7 @@
 'require clashwrt.dashui as dashui';
 'require clashwrt.power as power';
 
-var UI_VERSION = '0.2.3';
+var UI_VERSION = '0.2.4';
 
 var callStatus = function () {
 	return fs.exec('/usr/libexec/clashwrt/fw.sh', ['status'])
@@ -80,6 +80,16 @@ function stateWord(v) {
 	return known[v] || v || '?';
 }
 
+/* Three states, plain words: off in the config, on and the VPN is fine, or on
+ * and the VPN is down so traffic goes direct. */
+function watchdogPill(st) {
+	if (st['watchdog'] !== 'on')
+		return pill('#f1f3f4', '#5f6368', _('Watchdog off'));
+	if (st['egress'] === 'bypassed')
+		return pill('#fef7e0', '#b06000', _('Watchdog: bypass, VPN unavailable'));
+	return pill('#e6f4ea', '#137333', _('Watchdog on, all is well'));
+}
+
 function renderStatus(text) {
 	var st = parseStatus(text);
 	if (!Object.keys(st).length)
@@ -114,9 +124,7 @@ function renderStatus(text) {
 	var rows = [
 		[_('Mode'), modeCell],
 		[_('Proxy'), badge(st['enabled'] === '1', st['enabled'] === '1' ? _('on') : _('off'))],
-		[_('Automatic bypass'), st['autobypass'] === 'yes'
-			? pill('#fef7e0', '#b06000', _('active'))
-			: pill('#f1f3f4', '#5f6368', _('no'))],
+		[_('Watchdog'), watchdogPill(st)],
 		[_('Firewall ruleset'), badge(st['nft_table'] === 'present', stateWord(st['nft_table']))],
 		[_('mihomo daemon'), badge(st['mihomo'] === 'running', stateWord(st['mihomo']))],
 		[_('Tun device'), badge(st['tun_link'] === 'up', (st['tun_device'] || '') + ' ' + stateWord(st['tun_link']))],

@@ -9,9 +9,6 @@ msgstr ""
 msgid "Mode"
 msgstr ""
 
-msgid "no"
-msgstr ""
-
 msgid "Firewall ruleset"
 msgstr ""
 
@@ -885,12 +882,6 @@ msgstr ""
 msgid "Status and kill switches. Everything else is in the tabs above."
 msgstr ""
 
-msgid "Automatic bypass"
-msgstr ""
-
-msgid "active"
-msgstr ""
-
 msgid "Start and stop live on the Overview page."
 msgstr ""
 
@@ -1147,4 +1138,13 @@ msgid "Applies at once, without Save."
 msgstr ""
 
 msgid "ms"
+msgstr ""
+
+msgid "Watchdog off"
+msgstr ""
+
+msgid "Watchdog: bypass, VPN unavailable"
+msgstr ""
+
+msgid "Watchdog on, all is well"
 msgstr ""

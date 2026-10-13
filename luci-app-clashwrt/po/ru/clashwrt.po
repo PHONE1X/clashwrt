@@ -15,9 +15,6 @@ msgstr "Состояние недоступно."
 msgid "Mode"
 msgstr "Режим"
 
-msgid "no"
-msgstr "нет"
-
 msgid "Firewall ruleset"
 msgstr "Правила файрвола"
 
@@ -891,12 +888,6 @@ msgstr "Есть обновление"
 msgid "Status and kill switches. Everything else is in the tabs above."
 msgstr "Состояние и аварийные выключатели. Всё остальное — на вкладках выше."
 
-msgid "Automatic bypass"
-msgstr "Сторож"
-
-msgid "active"
-msgstr "включён"
-
 msgid "Start and stop live on the Overview page."
 msgstr "Запуск и остановка — на странице «Обзор»."
 
@@ -1154,3 +1145,12 @@ msgstr "Применяется сразу, без кнопки «Сохрани�
 
 msgid "ms"
 msgstr "мс"
+
+msgid "Watchdog off"
+msgstr "Сторож выкл"
+
+msgid "Watchdog: bypass, VPN unavailable"
+msgstr "Сторож: обход, VPN недоступен"
+
+msgid "Watchdog on, all is well"
+msgstr "Сторож вкл, всё в порядке"
