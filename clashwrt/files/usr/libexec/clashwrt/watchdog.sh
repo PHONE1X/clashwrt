@@ -91,9 +91,24 @@ load_cfg() {
 }
 
 # Every byte as %XX: group names and URLs go into a query string, and a group
-# called "Auto Select" or one in Cyrillic must survive that.
+# called "Auto Select" or one in Cyrillic must survive that. Pure shell: the
+# router's busybox has no od. Printable ASCII costs no process; only a byte
+# outside it takes one, because printf then reports it sign-extended and the
+# low two digits are the byte.
 urlenc() {
-	printf '%s' "$1" | od -An -v -tx1 | tr -d '\n' | sed 's/ /%/g'
+	local LC_ALL=C s="$1" rest c v
+	while [ -n "$s" ]; do
+		rest="${s#?}"
+		c="${s%"$rest"}"
+		s="$rest"
+		case "$c" in
+			[!\ -~])
+				v="$(printf '%02x' "'$c")"
+				printf '%%%s' "${v#"${v%??}"}"
+				;;
+			*) printf '%%%02x' "'$c" ;;
+		esac
+	done
 }
 
 # The group to time. An explicit UCI value wins; otherwise the terminal MATCH
