@@ -273,7 +273,11 @@ return view.extend({
 		return E('div', { 'class': 'cbi-map' }, [
 			E('h2', {}, _('Logs')),
 			E('div', { 'class': 'cbi-map-descr' },
-				_('The live view is mihomo\'s own log, read straight from its API — this is where you see which rule matched a connection and which node carried it. The system log shows everything around it: the firewall engine, hotplug and the daemon being restarted.')),
+				_('Live mihomo log, or the system log.')),
+			E('details', { 'style': 'font-size:90%;opacity:0.8;margin-bottom:8px' }, [
+				E('summary', {}, _('What each log shows')),
+				_('The live view is mihomo\'s own log, read straight from its API — this is where you see which rule matched a connection and which node carried it. The system log shows everything around it: the firewall engine, hotplug and the daemon being restarted.')
+			]),
 
 			E('div', { 'class': 'cbi-section' }, [
 				E('div', { 'style': 'margin-bottom:8px' }, [

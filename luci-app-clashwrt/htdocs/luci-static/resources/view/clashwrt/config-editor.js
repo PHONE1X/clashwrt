@@ -5,8 +5,9 @@
 'require ui';
 'require dom';
 'require clashwrt.generator as gen';
+'require clashwrt.rulefiles as rulefiles';
 
-var UI_VERSION = '0.1.7';
+var UI_VERSION = '0.2.0';
 
 var STAGING = '/tmp/clashwrt-staging';
 var CONFCTL = '/usr/libexec/clashwrt/confctl.sh';
@@ -139,12 +140,14 @@ return view.extend({
 	load: function () {
 		return Promise.all([
 			confctl(['read']).catch(function () { return { stdout: '' }; }),
-			confctl(['backups']).catch(function () { return { stdout: '' }; })
+			confctl(['backups']).catch(function () { return { stdout: '' }; }),
+			rulefiles.load()
 		]);
 	},
 
 	render: function (data) {
 		var text = (data[0] && data[0].stdout) ? data[0].stdout : '';
+		var filesNode = rulefiles.render(data[2]);
 		var backups = ((data[1] && data[1].stdout) ? data[1].stdout : '')
 			.split('\n').filter(function (s) { return s.trim().length; });
 
@@ -404,6 +407,7 @@ return view.extend({
 
 		var sel = E('select', { 'class': 'cbi-input-select' });
 		var restoreRow = E('div', { 'style': 'margin-top:1em' });
+		var noBackups = E('em', {}, _('No backups yet. One is made each time you save.'));
 
 		/* Repopulate the dropdown. `pick` is the entry to select if it still
 		 * exists; otherwise the one at `index` (so deleting the middle of the
@@ -417,6 +421,7 @@ return view.extend({
 				sel.selectedIndex = at;
 			}
 			restoreRow.style.display = list.length ? '' : 'none';
+			noBackups.style.display = list.length ? 'none' : '';
 		}
 
 		function reloadBackups(pick, index) {
@@ -543,21 +548,60 @@ return view.extend({
 		]);
 		setBackups(backups, null, 0);
 
+		/* Three jobs, three tabs: the other two used to be pages of their
+		 * own, and the message area below is shared so a result is visible
+		 * whichever tab produced it. */
+		var panes = {};
+		var items = {};
+
+		function showTab(id) {
+			Object.keys(panes).forEach(function (k) {
+				panes[k].style.display = k === id ? '' : 'none';
+				items[k].className = k === id ? 'cbi-tab' : 'cbi-tab-disabled';
+				items[k].setAttribute('data-active', k === id ? '1' : '0');
+			});
+		}
+
+		function tab(id, title, node) {
+			panes[id] = node;
+			items[id] = E('li', { 'class': 'cbi-tab-disabled', 'data-tab': id }, E('a', {
+				'href': '#',
+				'click': function (ev) { ev.preventDefault(); showTab(id); }
+			}, title));
+			return items[id];
+		}
+
+		var editorPane = E('div', { 'class': 'cbi-section' }, [
+			editorBox,
+			E('div', { 'style': 'margin-top:8px' }, [ btnValidate, btnSave, btnReload ]),
+			siteRow
+		]);
+		var backupsPane = E('div', { 'class': 'cbi-section' }, [
+			E('div', { 'class': 'cbi-map-descr' },
+				_('The previous version is kept every time you save.')),
+			restoreRow,
+			noBackups
+		]);
+		var filesPane = E('div', { 'class': 'cbi-section' }, filesNode);
+
+		var tabBar = E('ul', { 'class': 'cbi-tabmenu' }, [
+			tab('editor', _('Editor'), editorPane),
+			tab('backups', _('Backups'), backupsPane),
+			tab('files', _('Rule files'), filesPane)
+		]);
+		showTab('editor');
+
 		return E('div', { 'class': 'cbi-map' }, [
 			E('h2', {}, [
-				_('Mihomo configuration'),
+				_('Configuration'),
 				E('span', { 'style': 'font-size:55%;font-weight:normal;opacity:0.6;margin-left:8px' },
 					'ui ' + UI_VERSION)
 			]),
 			E('div', { 'class': 'cbi-map-descr' },
-				_('Direct editor for config.yaml. Nothing is installed until mihomo has accepted it, and the previous version is kept as a backup.')),
-			E('div', { 'class': 'cbi-section' }, [
-				editorBox,
-				E('div', { 'style': 'margin-top:8px' }, [ btnValidate, btnSave, btnReload ]),
-				siteRow,
-				restoreRow,
-				out
-			])
+				_('Edit config.yaml. Mihomo must accept a change before it is installed.')),
+			tabBar,
+			editorPane, backupsPane, filesPane,
+			out
 		]);
 	},
 
