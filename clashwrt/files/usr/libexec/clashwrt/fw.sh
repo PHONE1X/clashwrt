@@ -29,7 +29,8 @@
 #   (userspace copies every packet). Hence the matrix: pick the fastest
 #   mechanism your kernel actually honours for each protocol.
 #
-# Usage: fw.sh apply|flush|status|check
+# Usage: fw.sh apply|flush|status|check|detect|selftest
+#        fw.sh autobypass on|off
 
 # Deliberately no `set -u`: OpenWrt's /lib/functions.sh reads IPKG_INSTROOT and
 # friends unset, so nounset makes sourcing it abort.
@@ -38,6 +39,14 @@
 
 NAME="clashwrt"
 TABLE="inet clashwrt"
+
+# Written by the watchdog (through 'autobypass on') when the proxy path is
+# dead but the WAN is fine. While it exists apply and check build nothing, so
+# a restart or a hotplug event cannot quietly put the broken path back. It
+# lives in /var/run on purpose: a reboot starts proxy-first again.
+RUNDIR="/var/run/clashwrt"
+FLAG="$RUNDIR/autobypass"
+LOCKFILE="/var/lock/clashwrt-fw.lock"
 
 log() { logger -t "$NAME" "$@"; [ -t 1 ] && echo "$NAME: $*" >&2; return 0; }
 
@@ -48,6 +57,15 @@ die() {
 	logger -t "$NAME" "ERROR: $*"
 	echo "$NAME: ERROR: $*" >&2
 	exit 1
+}
+
+# Every action that changes the ruleset takes one lock, so the watchdog, the
+# init script, hotplug and LuCI cannot interleave a flush with an apply. The
+# lock is held by this process and dies with it; where `lock` is missing
+# (a bare shell, a test) it is simply skipped.
+fw_lock() {
+	command -v lock >/dev/null 2>&1 || return 0
+	lock "$LOCKFILE"
 }
 
 # ---------------------------------------------------------------------------
@@ -520,6 +538,7 @@ apply_routing() {
 do_apply() {
 	load_cfg
 	[ "$enabled" = 1 ] || { log "disabled in UCI, nothing to do"; do_flush_quiet; exit 0; }
+	[ ! -e "$FLAG" ] || { log "auto-bypass is active, leaving traffic direct (the watchdog restores it)"; do_flush_quiet; exit 0; }
 	resolve_ports
 	check_prereq
 	ensure_fw4_zone
@@ -548,6 +567,8 @@ do_status() {
 	load_cfg
 	resolve_ports
 	echo "enabled:      $enabled"
+	echo -n "autobypass:   "
+	[ -e "$FLAG" ] && echo yes || echo no
 	echo "mode:         $mode"
 	echo "lan_device:   $lan_device"
 	echo "wan_device:   ${wan_device:-unknown}"
@@ -586,6 +607,7 @@ do_status() {
 do_check() {
 	load_cfg
 	[ "$enabled" = 1 ] || exit 0
+	[ ! -e "$FLAG" ] || exit 0
 	resolve_ports
 
 	nft list table $TABLE >/dev/null 2>&1 || { log "nft table missing, re-applying"; do_apply; exit 0; }
@@ -600,6 +622,30 @@ do_check() {
 	fi
 }
 
+# The watchdog's two moves, as one atomic step each. Both refuse to act while
+# the user has the proxy off: that decision always wins, so a watchdog that
+# wakes up late can never turn the proxy back on.
+do_autobypass() {
+	load_cfg
+	case "${1:-}" in
+	on)
+		[ "$enabled" = 1 ] || { echo "proxy is off, nothing to bypass"; exit 0; }
+		mkdir -p "$RUNDIR"
+		: > "$FLAG"
+		do_flush_quiet
+		log "auto-bypass ON: proxy path is down, traffic goes direct"
+		;;
+	off)
+		rm -f "$FLAG"
+		if [ "$enabled" = 1 ]; then
+			do_apply
+			log "auto-bypass OFF: proxy path is back"
+		fi
+		;;
+	*) echo "usage: $0 autobypass on|off" >&2; exit 1 ;;
+	esac
+}
+
 # What netifd currently reports, so the UI can show what "auto" resolved to.
 do_detect() {
 	load_cfg
@@ -608,11 +654,12 @@ do_detect() {
 }
 
 case "${1:-}" in
-	apply)    do_apply ;;
-	flush)    do_flush ;;
-	status)   do_status ;;
-	check)    do_check ;;
-	detect)   do_detect ;;
-	selftest) exec /usr/libexec/clashwrt/selftest.sh ;;
-	*) echo "usage: $0 apply|flush|status|check|detect|selftest" >&2; exit 1 ;;
+	apply)      fw_lock; do_apply ;;
+	flush)      fw_lock; do_flush ;;
+	status)     do_status ;;
+	check)      fw_lock; do_check ;;
+	autobypass) fw_lock; do_autobypass "${2:-}" ;;
+	detect)     do_detect ;;
+	selftest)   exec /usr/libexec/clashwrt/selftest.sh ;;
+	*) echo "usage: $0 apply|flush|status|check|detect|selftest|autobypass on|off" >&2; exit 1 ;;
 esac

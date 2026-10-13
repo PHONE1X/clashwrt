@@ -62,6 +62,8 @@ fi
 
 /etc/init.d/clashwrt stop    >/dev/null 2>&1 || true
 /etc/init.d/clashwrt disable >/dev/null 2>&1 || true
+rm -rf /var/run/clashwrt
+rm -f /var/lock/clashwrt-fw.lock /var/lock/clashwrt-power.lock
 
 # --------------------------------------------------------------------------
 # fw4 zone
