@@ -1133,3 +1133,21 @@ msgstr ""
 
 msgid "Overview"
 msgstr ""
+
+msgid "Turn the watchdog on"
+msgstr ""
+
+msgid "Turn the watchdog off"
+msgstr ""
+
+msgid "The watchdog is on."
+msgstr ""
+
+msgid "The watchdog is off."
+msgstr ""
+
+msgid "Could not change the watchdog: %s"
+msgstr ""
+
+msgid "Applies at once, without Save."
+msgstr ""

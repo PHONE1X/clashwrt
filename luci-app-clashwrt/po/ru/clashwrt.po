@@ -1139,3 +1139,21 @@ msgstr "Зачем разделять?"
 
 msgid "Overview"
 msgstr "Обзор"
+
+msgid "Turn the watchdog on"
+msgstr "Включить сторожа"
+
+msgid "Turn the watchdog off"
+msgstr "Выключить сторожа"
+
+msgid "The watchdog is on."
+msgstr "Сторож включён."
+
+msgid "The watchdog is off."
+msgstr "Сторож выключен."
+
+msgid "Could not change the watchdog: %s"
+msgstr "Не удалось изменить сторожа: %s"
+
+msgid "Applies at once, without Save."
+msgstr "Применяется сразу, без кнопки «Сохранить»."

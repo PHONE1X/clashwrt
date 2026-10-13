@@ -9,8 +9,9 @@
 'require dom';
 'require clashwrt.generator as gen';
 'require clashwrt.dashui as dashui';
+'require clashwrt.power as power';
 
-var UI_VERSION = '0.2.1';
+var UI_VERSION = '0.2.2';
 
 var callStatus = function () {
 	return fs.exec('/usr/libexec/clashwrt/fw.sh', ['status'])
@@ -486,6 +487,74 @@ function buildSplit() {
 	]);
 }
 
+/* The Flag below only takes effect through Save & Apply at the bottom of the
+ * page, which is easy to miss. This button commits just this one option and
+ * reloads the service, so the watchdog changes the moment it is pressed. */
+function buildWatchdogToggle(map, flag) {
+	var on = uci.get('clashwrt', 'config', 'watchdog') === '1';
+	var busy = false;
+	var out = E('div');
+	var btn = E('button', {
+		'class': 'cbi-button',
+		'click': function (ev) {
+			ev.preventDefault();
+			if (busy) return;
+			var next = on ? '0' : '1';
+			busy = true;
+			btn.disabled = true;
+			dom.content(out, E('em', {}, _('Applying…')));
+			uci.set('clashwrt', 'config', 'watchdog', next);
+			uci.save().then(function () {
+				return uci.apply();
+			}).then(function () {
+				return fs.exec('/etc/init.d/clashwrt', ['reload']);
+			}).then(function () {
+				on = next === '1';
+				syncFlag();
+				dom.content(out, E('div', { 'class': 'alert-message success' },
+					on ? _('The watchdog is on.') : _('The watchdog is off.')));
+			}).catch(function (e) {
+				dom.content(out, E('div', { 'class': 'alert-message warning',
+					'style': 'white-space:pre-wrap' }, _('Could not change the watchdog: %s').format(describe(e))));
+			}).finally(function () {
+				busy = false;
+				btn.disabled = false;
+				paint();
+			});
+		}
+	});
+
+	/* Keeps the checkbox in the form equal to what was just committed;
+	 * otherwise a later Save would write the stale value back. */
+	function syncFlag() {
+		var w = flag.getUIElement ? flag.getUIElement('config') : null;
+		if (w && w.setValue) w.setValue(on ? '1' : '0');
+		if (map.checkDepends) map.checkDepends();
+	}
+
+	function paint() {
+		btn.className = 'cbi-button ' + (on ? 'cbi-button-reset' : 'cbi-button-action');
+		dom.content(btn, on ? _('Turn the watchdog off') : _('Turn the watchdog on'));
+	}
+
+	paint();
+	poll.add(function () {
+		if (busy) return Promise.resolve();
+		return power.status().then(function (st) {
+			if (st['wd_enabled'] !== 'on' && st['wd_enabled'] !== 'off') return;
+			on = st['wd_enabled'] === 'on';
+			paint();
+		});
+	}, 5);
+
+	return E('div', { 'class': 'cbi-section', 'style': 'margin-top:-0.5em' }, [
+		btn,
+		E('div', { 'style': 'font-size:90%;opacity:0.8;margin-top:4px' },
+			_('Applies at once, without Save.')),
+		out
+	]);
+}
+
 function customNode(s, tab, name, build) {
 	var o = s.taboption(tab, form.DummyValue, name);
 	o.rawhtml = true;
@@ -568,6 +637,8 @@ return view.extend({
 			'</details>');
 		o.default = '0';
 		o.rmempty = false;
+		var wdFlag = o;
+		customNode(s, 'basic', '_n_wdtoggle', function () { return buildWatchdogToggle(m, wdFlag); });
 
 		/* ---------------- bypass ---------------- */
 
