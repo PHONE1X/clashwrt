@@ -854,3 +854,6 @@ msgstr ""
 
 msgid "The new name is the same as the old one."
 msgstr ""
+
+msgid "Nothing to preview yet: add a subscription URL or a node link, and pick Proxy or DIRECT for added sites."
+msgstr ""

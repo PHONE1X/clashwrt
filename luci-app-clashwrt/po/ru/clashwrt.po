@@ -872,3 +872,6 @@ msgstr "Резервная копия с таким именем уже суще
 
 msgid "The new name is the same as the old one."
 msgstr "Новое имя совпадает со старым."
+
+msgid "Nothing to preview yet: add a subscription URL or a node link, and pick Proxy or DIRECT for added sites."
+msgstr "Пока нечего показывать: добавьте URL подписки или ссылку на узел и выберите Proxy или DIRECT для добавленных сайтов."

@@ -7,7 +7,7 @@
 'require dom';
 'require clashwrt.generator as gen';
 
-var UI_VERSION = '0.1.6';
+var UI_VERSION = '0.1.8';
 
 var STAGING = '/tmp/clashwrt-staging';
 var CONFCTL = '/usr/libexec/clashwrt/confctl.sh';
@@ -119,7 +119,8 @@ return view.extend({
 		var out = E('div');
 		var preview = E('textarea', {
 			'style': 'width:100%;min-height:40vh;font-family:monospace;font-size:12px;white-space:pre;overflow-x:auto',
-			'spellcheck': 'false'
+			'spellcheck': 'false',
+			'placeholder': _('Nothing to preview yet: add a subscription URL or a node link, and pick Proxy or DIRECT for added sites.')
 		}, '');
 
 		/* ---- inputs ---- */
@@ -216,6 +217,7 @@ return view.extend({
 						'click': function () {
 							sites = sites.filter(function (x) { return x !== d; });
 							renderChips();
+							refreshPreview();
 						}
 					}, '×')
 				]);
@@ -252,6 +254,7 @@ return view.extend({
 			sites = gen.normDomains(sites.concat(d));
 			siteInput.value = '';
 			renderChips();
+			refreshPreview();
 			dom.content(siteMsg, _('Added %d domain(s): %s').format(d.length, d.join(', ')));
 		}
 
@@ -277,6 +280,7 @@ return view.extend({
 			fillGroups(ans.extraGroup);
 			renderChips();
 			updateDetected();
+			refreshPreview();
 		}
 
 		function showBanner(src) {
@@ -406,17 +410,33 @@ return view.extend({
 			return false;
 		}
 
+		function hasNodes(ans) {
+			return gen.subscriptionsOf(ans.subs).length > 0 || gen.parseLinks(ans.links).proxies.length > 0;
+		}
+
+		/* The preview is the generated config for whatever the form says right
+		 * now, so it is rebuilt on load and after every change instead of only
+		 * when Generate is pressed -- otherwise it sits empty under a form that
+		 * was pre-filled and looks as if nothing happened. */
+		function refreshPreview() {
+			var ans = collect();
+			var good = hasNodes(ans) && (!ans.extraDomains.length ||
+				ans.extraGroup === 'Proxy' || ans.extraGroup === 'DIRECT');
+			preview.value = good ? gen.generate(buildOptions(ans)) : '';
+			previewKind = good ? 'generate' : '';
+			return good;
+		}
+
 		var btnPreview = E('button', {
 			'class': 'cbi-button cbi-button-action',
 			'click': function () {
 				var ans = collect();
 				if (!groupOk(ans)) return;
-				if (!gen.subscriptionsOf(ans.subs).length && !gen.parseLinks(ans.links).proxies.length) {
+				if (!hasNodes(ans)) {
 					say(out, false, _('Add a subscription URL or at least one working node link first.'));
 					return;
 				}
-				preview.value = gen.generate(buildOptions(ans));
-				previewKind = 'generate';
+				refreshPreview();
 				say(out, true, _('Generated. Review it below, then apply.'));
 			}
 		}, _('Generate'));
@@ -534,8 +554,6 @@ return view.extend({
 						}
 						applyAnswers(self.answersFromConfig(cfg));
 						showBanner('config');
-						previewKind = '';
-						preview.value = '';
 						say(out, true, _('Fields reloaded from the installed config.yaml.'));
 					})
 					.catch(function (e) { say(out, false, String(e.message || e)); })
@@ -547,7 +565,12 @@ return view.extend({
 		showBanner(a.source);
 		syncQuick();
 
-		return E('div', { 'class': 'cbi-map' }, [
+		var formSection;
+		var onFormChange = function (ev) {
+			if (ev.target !== siteInput) refreshPreview();
+		};
+
+		var page = E('div', { 'class': 'cbi-map' }, [
 			E('h2', {}, [
 				_('Setup wizard'),
 				E('span', { 'style': 'font-size:55%;font-weight:normal;opacity:0.6;margin-left:8px' },
@@ -558,7 +581,7 @@ return view.extend({
 
 			banner,
 
-			E('div', { 'class': 'cbi-section' }, [
+			formSection = E('div', { 'class': 'cbi-section' }, [
 				label(_('Subscription URLs'), _('One per line. Each becomes a proxy-provider.')),
 				subsBox,
 
@@ -614,6 +637,11 @@ return view.extend({
 				preview
 			])
 		]);
+
+		formSection.addEventListener('input', onFormChange);
+		formSection.addEventListener('change', onFormChange);
+
+		return page;
 	},
 
 	handleSave: null,
