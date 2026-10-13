@@ -10,7 +10,7 @@
 'require clashwrt.generator as gen';
 'require clashwrt.dashui as dashui';
 
-var UI_VERSION = '0.2.0';
+var UI_VERSION = '0.2.1';
 
 var callStatus = function () {
 	return fs.exec('/usr/libexec/clashwrt/fw.sh', ['status'])
