@@ -4,8 +4,9 @@
 'require fs';
 'require ui';
 'require dom';
+'require clashwrt.generator as gen';
 
-var UI_VERSION = '0.1.5';
+var UI_VERSION = '0.1.6';
 
 var STAGING = '/tmp/clashwrt-staging';
 var CONFCTL = '/usr/libexec/clashwrt/confctl.sh';
@@ -341,6 +342,64 @@ return view.extend({
 			}
 		}, _('Discard changes'));
 
+		/* Insert rules for a site into the text in the editor. Nothing is
+		 * saved: the result is an ordinary edit, checked and installed by
+		 * the buttons above like any other. */
+		var siteInput = E('input', {
+			'type': 'text', 'class': 'cbi-input-text', 'style': 'width:22em',
+			'placeholder': _('https://example.com or a service name, e.g. youtube')
+		});
+		var siteGroup = E('select', { 'class': 'cbi-input-select', 'style': 'margin-left:6px' });
+
+		function fillSiteGroups() {
+			var keep = siteGroup.value || 'Proxy';
+			var names = ['Proxy', 'DIRECT'];
+			gen.parseConfig(area.value).groups.forEach(function (n) {
+				if (n !== gen.UDP_GROUP && names.indexOf(n) < 0) names.push(n);
+			});
+			dom.content(siteGroup, names.map(function (n) {
+				return E('option', { 'value': n, 'selected': n === keep ? '' : null }, n);
+			}));
+		}
+		fillSiteGroups();
+		siteGroup.addEventListener('focus', fillSiteGroups);
+		siteGroup.addEventListener('mousedown', fillSiteGroups);
+
+		function addSite() {
+			var d = gen.siteDomains(siteInput.value);
+			if (!d.length) {
+				say(out, false, _('Not recognised as a site — enter a URL, a hostname, or a service name.'));
+				return;
+			}
+			try {
+				var next = gen.addSiteRules(area.value, d, { group: siteGroup.value });
+				if (next === area.value) {
+					say(out, true, _('Every one of these sites is already in the config for that group.'));
+					return;
+				}
+				area.value = next;
+				badLine = 0;
+				repaint();
+				siteInput.value = '';
+				say(out, true, _('Added %d domain(s) to the editor: %s. Not saved yet — check the syntax, then save.')
+					.format(d.length, d.join(', ')));
+			} catch (e) {
+				say(out, false, String(e.message || e));
+			}
+		}
+
+		siteInput.addEventListener('keydown', function (ev) {
+			if (ev.key === 'Enter') { ev.preventDefault(); addSite(); }
+		});
+
+		var siteRow = E('div', { 'style': 'margin-top:1em' }, [
+			E('label', { 'style': 'margin-right:6px' }, _('Add site:')),
+			siteInput,
+			siteGroup,
+			' ',
+			E('button', { 'type': 'button', 'class': 'cbi-button cbi-button-add', 'click': addSite }, _('Add'))
+		]);
+
 		var restoreRow = null;
 		if (backups.length) {
 			var sel = E('select', { 'class': 'cbi-input-select' },
@@ -386,6 +445,7 @@ return view.extend({
 			E('div', { 'class': 'cbi-section' }, [
 				editorBox,
 				E('div', { 'style': 'margin-top:8px' }, [ btnValidate, btnSave, btnReload ]),
+				siteRow,
 				restoreRow || '',
 				out
 			])
