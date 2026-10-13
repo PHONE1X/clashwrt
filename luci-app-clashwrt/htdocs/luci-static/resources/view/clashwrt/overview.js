@@ -9,7 +9,7 @@
 'require clashwrt.generator as gen';
 'require clashwrt.power as power';
 
-var UI_VERSION = '0.2.0';
+var UI_VERSION = '0.2.1';
 
 var CONFCTL = '/usr/libexec/clashwrt/confctl.sh';
 var UPDCTL = '/usr/libexec/clashwrt/updctl.sh';
@@ -254,17 +254,17 @@ return view.extend({
 		function wdLine(s) {
 			var w = s['wd_state'];
 			if (w === 'ok') {
-				return _('Watching the proxy path: healthy.') +
-					(s['wd_delay'] ? ' (' + s['wd_delay'] + ' ms)' : '');
+				return _('Watchdog is on. The VPN is responding, all is well.') +
+					(s['wd_delay'] ? ' (' + s['wd_delay'] + ' ' + _('ms') + ')' : '');
 			}
-			if (w === 'grace') return _('Starting up: not judging the proxy path yet.');
+			if (w === 'grace') return _('The watchdog has just started and is still looking around.');
 			if (w === 'failing')
-				return _('Probes are failing (%s of %s).').format(s['wd_fails'] || '?', s['wd_fail_limit'] || '?');
+				return _('The VPN stopped responding. Checking again (%s of %s).').format(s['wd_fails'] || '?', s['wd_fail_limit'] || '?');
 			if (w === 'bypassed')
-				return _('Bypassed: traffic goes direct. Earliest restore in %s s.').format(s['wd_hold_left'] || '0');
-			if (w === 'wan_down') return _('The internet is down, so there is nothing to fix. Waiting.');
-			if (w === 'idle') return _('Idle: the proxy is off.');
-			if (w === 'skip') return _('Cannot check the proxy path: %s').format(s['wd_why'] || '?');
+				return _('The VPN is not responding, so the internet goes direct. It can come back in %s s at the earliest.').format(s['wd_hold_left'] || '0');
+			if (w === 'wan_down') return _('There is no internet at all, so the VPN is not to blame. Waiting.');
+			if (w === 'idle') return _('The proxy is off, so the watchdog has nothing to do.');
+			if (w === 'skip') return _('Cannot check the VPN: %s').format(s['wd_why'] || '?');
 			return _('The watchdog is not running.');
 		}
 
@@ -285,7 +285,7 @@ return view.extend({
 			'style': 'margin-left:6px',
 			'click': function () {
 				ui.showModal(_('Restore the proxy now?'), [
-					E('p', {}, _('This puts the proxy rules back immediately, even though the proxy path may still be down. The watchdog will judge it again after a short grace period.')),
+					E('p', {}, _('This brings the proxy back right away, even if the VPN is still not working. After a short pause the watchdog will check it again.')),
 					E('div', { 'class': 'right' }, [
 						E('button', { 'class': 'cbi-button', 'click': ui.hideModal }, _('Cancel')),
 						' ',
@@ -311,7 +311,7 @@ return view.extend({
 		function paintWatchdog(s) {
 			if (s['wd_enabled'] !== 'on') {
 				dom.content(wdBox, E('div', { 'class': 'cw-wd-off', 'style': 'font-size:90%;opacity:.75' }, [
-					_('Fail-open watchdog: off.') + ' ',
+					_('The watchdog is off.') + ' ',
 					E('a', { 'href': settingsUrl() }, _('Turn it on in Settings'))
 				]));
 				return;
@@ -326,7 +326,7 @@ return view.extend({
 			if (bypassed) kids[2].appendChild(btnForce);
 			if (s['wd_dns_forward'] === 'yes') {
 				kids.push(E('div', { 'class': 'cw-wd-dns', 'style': 'margin-top:8px;color:#b06000' },
-					_('dnsmasq forwards DNS to mihomo here. A bypass lifts the traffic rules but not that, so names may stop resolving while the core is down.')));
+					_('If the core stops, website names may stop opening until it is back.')));
 			}
 			kids.push(E('details', { 'style': 'margin-top:8px' }, [
 				E('summary', {}, _('Details')),
