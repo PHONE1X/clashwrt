@@ -40,28 +40,52 @@ function describe(e) {
 	return String(e.message || e);
 }
 
-/* An older powerctl.sh reports no 'service' line; that is not "off". */
-function serviceOn(st) {
+/* 'service' is whether ClashWrt starts at boot; an older powerctl.sh
+ * reports no such line, and that is not "off". */
+function serviceBoot(st) {
 	return !st || st['service'] !== 'off';
 }
 
-/* What the router is doing right now, in one word. Order matters: a service
- * the user switched off outranks everything, the watchdog's two states only
- * mean anything while the proxy is on, and a missing core beats a
- * healthy-looking rule set. */
-function classify(st) {
-	if (!st || !st['proxy'])
-		return { key: 'unknown', tone: 'gray', label: _('Unknown'),
-			message: _('The router did not answer. Reload the page.') };
+/* Whether any of it -- the rules, the watchdog -- is at work right now. An
+ * older powerctl.sh has no 'svc_live' line, so work it out from the rest. */
+function serviceLive(st) {
+	if (!st) return false;
+	if (st['svc_live']) return st['svc_live'] === 'yes';
+	return st['rules'] === 'present' || st['wd_running'] === 'yes';
+}
 
+/* What the page calls on: running now, or set to start at boot. Off at boot
+ * but still running counts as on, because the traffic says so. */
+function serviceOn(st) {
+	return serviceBoot(st) || serviceLive(st);
+}
+
+/* Off at boot while still running: what the next reboot will change. */
+function serviceHalf(st) {
+	return !serviceBoot(st) && serviceLive(st);
+}
+
+/* What the router is doing with the traffic right now, in one word. The
+ * firewall rules decide that, not the settings: rules loaded means traffic is
+ * steered, whatever the switches were last set to. Order matters: a service
+ * that is off and has nothing left running outranks everything, the
+ * watchdog's two states only mean anything while the proxy is on, and a
+ * missing core beats a healthy-looking rule set. */
+function classifyLive(st) {
 	if (!serviceOn(st))
 		return { key: 'svc_off', tone: 'gray', label: _('Service off'),
 			message: _('ClashWrt is switched off. All traffic goes out directly and the watchdog sleeps.') };
 
 	var proxyOn = st['proxy'] === 'on';
 	var coreUp = st['core'] === 'running';
+	var steered = st['rules'] === 'present';
 
 	if (!proxyOn) {
+		if (steered)
+			return { key: 'stray', tone: coreUp ? 'amber' : 'red', label: _('Still steered'),
+				message: coreUp
+					? _('The proxy is set to off, but its firewall rules are still loaded, so traffic still goes through the core. Switch the proxy off again.')
+					: _('The proxy is set to off, but its firewall rules are still loaded and the core is not running, so traffic is being lost. Switch the proxy off again.') };
 		if (coreUp)
 			return { key: 'direct', tone: 'blue', label: _('Direct'),
 				message: _('The core is running, but the proxy is off: all traffic goes out directly.') };
@@ -71,11 +95,11 @@ function classify(st) {
 				: _('Everything is off. All traffic goes out directly.') };
 	}
 
-	if (st['autobypass'] === 'yes')
+	if (st['autobypass'] === 'yes' && !steered)
 		return { key: 'bypassed', tone: 'amber', label: _('Bypassed'),
 			message: _('The proxy path is down, so traffic goes direct until it recovers.') };
 
-	if (!coreUp || st['rules'] !== 'present')
+	if (!coreUp || !steered)
 		return { key: 'broken', tone: 'red', label: _('Broken'),
 			message: !coreUp
 				? _('The proxy is on but the core is not running, so traffic is being lost. Start the core or turn the proxy off.')
@@ -85,8 +109,24 @@ function classify(st) {
 		return { key: 'wan_down', tone: 'gray', label: _('No internet'),
 			message: _('Your internet connection is down. The proxy cannot fix that.') };
 
-	return { key: 'active', tone: 'green', label: _('Protected'),
+	var c = { key: 'active', tone: 'green', label: _('Protected'),
 		message: _('Traffic from your network goes through the proxy.') };
+	/* protected, but nobody is watching the path */
+	if (st['wd_enabled'] === 'on' && st['wd_running'] === 'no')
+		c.message += ' ' + _('The watchdog is not running.');
+	return c;
+}
+
+function classify(st) {
+	if (!st || !st['proxy'])
+		return { key: 'unknown', tone: 'gray', label: _('Unknown'),
+			message: _('The router did not answer. Reload the page.') };
+
+	var c = classifyLive(st);
+	c.half = serviceHalf(st);
+	if (c.half)
+		c.message += ' ' + _('ClashWrt is set not to start after a reboot, but it is still running now.');
+	return c;
 }
 
 function pill(tone, label) {
@@ -107,6 +147,9 @@ return baseclass.extend({
 	describe: describe,
 	classify: classify,
 	serviceOn: serviceOn,
+	serviceBoot: serviceBoot,
+	serviceLive: serviceLive,
+	serviceHalf: serviceHalf,
 	pill: pill,
 	TONES: TONES,
 

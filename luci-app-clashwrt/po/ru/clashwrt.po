@@ -1172,3 +1172,27 @@ msgstr "Сторож спит, пока ClashWrt выключен."
 
 msgid "Watchdog sleeps, ClashWrt is off"
 msgstr "Сторож спит, ClashWrt выключен"
+
+msgid "Still steered"
+msgstr "Правила остались"
+
+msgid "The proxy is set to off, but its firewall rules are still loaded, so traffic still goes through the core. Switch the proxy off again."
+msgstr "Прокси выключен, но его правила всё ещё загружены, и трафик по-прежнему идёт через ядро. Выключите прокси ещё раз."
+
+msgid "The proxy is set to off, but its firewall rules are still loaded and the core is not running, so traffic is being lost. Switch the proxy off again."
+msgstr "Прокси выключен, но его правила всё ещё загружены, а ядро не запущено, поэтому трафик теряется. Выключите прокси ещё раз."
+
+msgid "ClashWrt is set not to start after a reboot, but it is still running now."
+msgstr "После перезагрузки ClashWrt не запустится, но сейчас он всё ещё работает."
+
+msgid "Will not start after a reboot."
+msgstr "Не запустится после перезагрузки."
+
+msgid "Keep it on"
+msgstr "Оставить включённым"
+
+msgid "Watchdog not running"
+msgstr "Сторож не запущен"
+
+msgid "Watchdog idle, the proxy is off"
+msgstr "Сторож отдыхает, прокси выключен"

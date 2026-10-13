@@ -1166,3 +1166,27 @@ msgstr ""
 
 msgid "Watchdog sleeps, ClashWrt is off"
 msgstr ""
+
+msgid "Still steered"
+msgstr ""
+
+msgid "The proxy is set to off, but its firewall rules are still loaded, so traffic still goes through the core. Switch the proxy off again."
+msgstr ""
+
+msgid "The proxy is set to off, but its firewall rules are still loaded and the core is not running, so traffic is being lost. Switch the proxy off again."
+msgstr ""
+
+msgid "ClashWrt is set not to start after a reboot, but it is still running now."
+msgstr ""
+
+msgid "Will not start after a reboot."
+msgstr ""
+
+msgid "Keep it on"
+msgstr ""
+
+msgid "Watchdog not running"
+msgstr ""
+
+msgid "Watchdog idle, the proxy is off"
+msgstr ""

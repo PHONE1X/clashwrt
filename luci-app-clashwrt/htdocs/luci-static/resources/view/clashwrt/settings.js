@@ -11,7 +11,7 @@
 'require clashwrt.dashui as dashui';
 'require clashwrt.power as power';
 
-var UI_VERSION = '0.2.5';
+var UI_VERSION = '0.2.6';
 
 var callStatus = function () {
 	return fs.exec('/usr/libexec/clashwrt/fw.sh', ['status'])
@@ -81,12 +81,26 @@ function stateWord(v) {
 }
 
 /* Three states, plain words: off in the config, on and the VPN is fine, or on
- * and the VPN is down so traffic goes direct. */
+ * and the VPN is down so traffic goes direct. What it says follows whether the
+ * daemon really runs (fw.sh 'wd_running'), not what the switches were set to:
+ * a watchdog left running by a service that is off at boot still guards. */
 function watchdogPill(st) {
+	var running = st['wd_running'];
+	if (running === 'yes') {
+		if (st['egress'] === 'bypassed')
+			return pill('#fef7e0', '#b06000', _('Watchdog: bypass, VPN unavailable'));
+		return pill('#e6f4ea', '#137333', _('Watchdog on, all is well'));
+	}
 	if (st['service'] === 'off')
 		return pill('#f1f3f4', '#5f6368', _('Watchdog sleeps, ClashWrt is off'));
 	if (st['watchdog'] !== 'on')
 		return pill('#f1f3f4', '#5f6368', _('Watchdog off'));
+	/* with the proxy off the init script starts no watchdog at all */
+	if (running === 'no' && st['enabled'] !== '1')
+		return pill('#f1f3f4', '#5f6368', _('Watchdog idle, the proxy is off'));
+	/* an older fw.sh says nothing about the daemon itself */
+	if (running === 'no')
+		return pill('#fef7e0', '#b06000', _('Watchdog not running'));
 	if (st['egress'] === 'bypassed')
 		return pill('#fef7e0', '#b06000', _('Watchdog: bypass, VPN unavailable'));
 	return pill('#e6f4ea', '#137333', _('Watchdog on, all is well'));

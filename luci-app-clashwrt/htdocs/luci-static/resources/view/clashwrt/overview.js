@@ -9,7 +9,7 @@
 'require clashwrt.generator as gen';
 'require clashwrt.power as power';
 
-var UI_VERSION = '0.2.2';
+var UI_VERSION = '0.2.3';
 
 var CONFCTL = '/usr/libexec/clashwrt/confctl.sh';
 var UPDCTL = '/usr/libexec/clashwrt/updctl.sh';
@@ -351,8 +351,12 @@ return view.extend({
 		function paint(s) {
 			cur = s || {};
 			var c = power.classify(cur);
+			/* switches show what runs, not what boot will do: the service is
+			 * on while anything of it is at work, the proxy while its rules
+			 * are loaded (or a bypass holds them off for a moment) */
 			var svcOn = power.serviceOn(cur);
-			var proxyOn = cur['proxy'] === 'on' && svcOn;
+			var svcBoot = power.serviceBoot(cur);
+			var proxyOn = (cur['proxy'] === 'on' || cur['rules'] === 'present') && svcOn;
 			var coreUp = cur['core'] === 'running';
 			var known = !!cur['proxy'];
 
@@ -374,14 +378,22 @@ return view.extend({
 			var proxyBlocked = !proxyOn && !coreUp;
 			var missing = cur['core'] === 'missing';
 			dom.content(switches.proxy.note,
-				!svcOn ? _('Switch ClashWrt on first.') : (proxyBlocked && known ? _('Start the core first.') : ''));
-			dom.content(switches.all.note, !svcOn ? _('Switch ClashWrt on first.') : '');
+				!svcBoot ? _('Switch ClashWrt on first.') : (proxyBlocked && known ? _('Start the core first.') : ''));
+			dom.content(switches.all.note, !svcBoot ? _('Switch ClashWrt on first.') : '');
 			dom.content(switches.core.note, missing ? _('The core is not installed. Install it from Settings.') : '');
+			dom.content(switches.svc.note, power.serviceHalf(cur) ? [
+				_('Will not start after a reboot.') + ' ',
+				E('a', {
+					'href': '#',
+					'class': 'cw-keep',
+					'click': function (ev) { ev.preventDefault(); if (!busy) act('svc', true); }
+				}, _('Keep it on'))
+			] : '');
 
 			if (!busy) {
-				switches.proxy.input.disabled = !known || proxyBlocked || !svcOn;
+				switches.proxy.input.disabled = !known || proxyBlocked || !svcBoot;
 				switches.core.input.disabled = !known || missing;
-				switches.all.input.disabled = !known || missing || !svcOn;
+				switches.all.input.disabled = !known || missing || !svcBoot;
 				switches.svc.input.disabled = !known;
 			}
 
