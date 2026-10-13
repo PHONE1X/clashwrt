@@ -23,4 +23,7 @@ WANT="$(uci -q get clashwrt.config.tun_device)" || exit 0
 
 [ "$(uci -q get clashwrt.config.enabled)" = "1" ] || exit 0
 
+# switched off from the Overview page: stay idle
+/etc/init.d/clashwrt enabled || exit 0
+
 /usr/libexec/clashwrt/fw.sh check

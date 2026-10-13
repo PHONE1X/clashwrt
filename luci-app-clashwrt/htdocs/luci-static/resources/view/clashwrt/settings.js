@@ -11,7 +11,7 @@
 'require clashwrt.dashui as dashui';
 'require clashwrt.power as power';
 
-var UI_VERSION = '0.2.4';
+var UI_VERSION = '0.2.5';
 
 var callStatus = function () {
 	return fs.exec('/usr/libexec/clashwrt/fw.sh', ['status'])
@@ -83,6 +83,8 @@ function stateWord(v) {
 /* Three states, plain words: off in the config, on and the VPN is fine, or on
  * and the VPN is down so traffic goes direct. */
 function watchdogPill(st) {
+	if (st['service'] === 'off')
+		return pill('#f1f3f4', '#5f6368', _('Watchdog sleeps, ClashWrt is off'));
 	if (st['watchdog'] !== 'on')
 		return pill('#f1f3f4', '#5f6368', _('Watchdog off'));
 	if (st['egress'] === 'bypassed')

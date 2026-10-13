@@ -595,6 +595,8 @@ do_status() {
 	echo "enabled:      $enabled"
 	echo -n "autobypass:   "
 	[ -e "$FLAG" ] && echo yes || echo no
+	echo -n "service:      "
+	/etc/init.d/clashwrt enabled >/dev/null 2>&1 && echo on || echo off
 	config_get wd config watchdog 0
 	echo -n "watchdog:     "
 	[ "$wd" = "1" ] && echo on || echo off
@@ -644,6 +646,8 @@ do_check() {
 	load_cfg
 	[ "$enabled" = 1 ] || exit 0
 	[ ! -e "$FLAG" ] || exit 0
+	# switched off from the Overview page: do not rebuild what it stopped
+	/etc/init.d/clashwrt enabled >/dev/null 2>&1 || exit 0
 	resolve_ports
 
 	nft list table $TABLE >/dev/null 2>&1 || { log "nft table missing, re-applying"; do_apply; exit 0; }

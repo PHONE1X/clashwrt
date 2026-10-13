@@ -42,7 +42,10 @@ stop_service() {
 
 # A settings change re-evaluates everything, including a bypass in progress:
 # the flag is dropped with the stop, and the daemon judges the path afresh.
+# Switched off from the Overview page means disabled at boot; a settings
+# change must not bring a service the user turned off back to life.
 reload_service() {
+	enabled || return 0
 	stop
 	start
 }

@@ -1148,3 +1148,21 @@ msgstr ""
 
 msgid "Watchdog on, all is well"
 msgstr ""
+
+msgid "Service off"
+msgstr ""
+
+msgid "ClashWrt is switched off. All traffic goes out directly and the watchdog sleeps."
+msgstr ""
+
+msgid "The whole service. Off: nothing is steered, the watchdog sleeps, and it stays off after a reboot. Starts on."
+msgstr ""
+
+msgid "Switch ClashWrt on first."
+msgstr ""
+
+msgid "The watchdog sleeps while ClashWrt is off."
+msgstr ""
+
+msgid "Watchdog sleeps, ClashWrt is off"
+msgstr ""

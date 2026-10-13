@@ -1154,3 +1154,21 @@ msgstr "Сторож: обход, VPN недоступен"
 
 msgid "Watchdog on, all is well"
 msgstr "Сторож вкл, всё в порядке"
+
+msgid "Service off"
+msgstr "Служба выключена"
+
+msgid "ClashWrt is switched off. All traffic goes out directly and the watchdog sleeps."
+msgstr "ClashWrt выключен. Весь интернет идёт напрямую, сторож спит."
+
+msgid "The whole service. Off: nothing is steered, the watchdog sleeps, and it stays off after a reboot. Starts on."
+msgstr "Вся служба целиком. Выключена: ничего не перенаправляется, сторож спит, и после перезагрузки так и останется. По умолчанию включена."
+
+msgid "Switch ClashWrt on first."
+msgstr "Сначала включите ClashWrt."
+
+msgid "The watchdog sleeps while ClashWrt is off."
+msgstr "Сторож спит, пока ClashWrt выключен."
+
+msgid "Watchdog sleeps, ClashWrt is off"
+msgstr "Сторож спит, ClashWrt выключен"

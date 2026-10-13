@@ -9,7 +9,7 @@
 'require clashwrt.generator as gen';
 'require clashwrt.power as power';
 
-var UI_VERSION = '0.2.1';
+var UI_VERSION = '0.2.2';
 
 var CONFCTL = '/usr/libexec/clashwrt/confctl.sh';
 var UPDCTL = '/usr/libexec/clashwrt/updctl.sh';
@@ -57,7 +57,7 @@ return view.extend({
 		var updBox = E('span', { 'id': 'cw-upd', 'style': 'margin-left:10px' });
 		var out = E('div', { 'id': 'cw-out' });
 
-		/* ---------------- the three switches ---------------- */
+		/* ---------------- the switches ---------------- */
 
 		var switches = {};
 
@@ -87,7 +87,9 @@ return view.extend({
 			makeSwitch('core', _('mihomo core'),
 				_('The engine itself. Off: it also stays stopped after a reboot. Starts on.')),
 			makeSwitch('all', _('Everything'),
-				_('Both together, in the safe order. Use this when something is wrong.'))
+				_('Both together, in the safe order. Use this when something is wrong.')),
+			makeSwitch('svc', _('ClashWrt'),
+				_('The whole service. Off: nothing is steered, the watchdog sleeps, and it stays off after a reboot. Starts on.'))
 		];
 
 		function setBusy(b) {
@@ -136,7 +138,7 @@ return view.extend({
 
 		function toggled(key, want) {
 			if (busy) return;
-			if (key === 'core' && !want && cur['proxy'] === 'on') {
+			if (key === 'core' && !want && cur['proxy'] === 'on' && power.serviceOn(cur)) {
 				confirmCoreOff();
 				return;
 			}
@@ -309,6 +311,11 @@ return view.extend({
 		}, _('Restore proxy now'));
 
 		function paintWatchdog(s) {
+			if (!power.serviceOn(s)) {
+				dom.content(wdBox, E('div', { 'class': 'cw-wd-off', 'style': 'font-size:90%;opacity:.75' },
+					_('The watchdog sleeps while ClashWrt is off.')));
+				return;
+			}
 			if (s['wd_enabled'] !== 'on') {
 				dom.content(wdBox, E('div', { 'class': 'cw-wd-off', 'style': 'font-size:90%;opacity:.75' }, [
 					_('The watchdog is off.') + ' ',
@@ -344,7 +351,8 @@ return view.extend({
 		function paint(s) {
 			cur = s || {};
 			var c = power.classify(cur);
-			var proxyOn = cur['proxy'] === 'on';
+			var svcOn = power.serviceOn(cur);
+			var proxyOn = cur['proxy'] === 'on' && svcOn;
 			var coreUp = cur['core'] === 'running';
 			var known = !!cur['proxy'];
 
@@ -358,18 +366,23 @@ return view.extend({
 			dom.content(switches.proxy.state, stateWord(proxyOn));
 			dom.content(switches.core.state, stateWord(coreUp));
 			dom.content(switches.all.state, stateWord(proxyOn && coreUp));
+			switches.svc.input.checked = svcOn;
+			dom.content(switches.svc.state, stateWord(svcOn));
 
 			/* The proxy rules with no core behind them are an outage, so the
 			 * page does not offer to switch them on that way round. */
 			var proxyBlocked = !proxyOn && !coreUp;
 			var missing = cur['core'] === 'missing';
-			dom.content(switches.proxy.note, proxyBlocked && known ? _('Start the core first.') : '');
+			dom.content(switches.proxy.note,
+				!svcOn ? _('Switch ClashWrt on first.') : (proxyBlocked && known ? _('Start the core first.') : ''));
+			dom.content(switches.all.note, !svcOn ? _('Switch ClashWrt on first.') : '');
 			dom.content(switches.core.note, missing ? _('The core is not installed. Install it from Settings.') : '');
 
 			if (!busy) {
-				switches.proxy.input.disabled = !known || proxyBlocked;
+				switches.proxy.input.disabled = !known || proxyBlocked || !svcOn;
 				switches.core.input.disabled = !known || missing;
-				switches.all.input.disabled = !known || missing;
+				switches.all.input.disabled = !known || missing || !svcOn;
+				switches.svc.input.disabled = !known;
 			}
 
 			btnRestart.setAttribute('data-down', coreUp ? '0' : '1');

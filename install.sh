@@ -200,6 +200,13 @@ if [ -x /etc/init.d/mihomo ]; then
 	if /etc/init.d/mihomo enabled >/dev/null 2>&1; then CORE_STATE="on"; else CORE_STATE="off"; fi
 fi
 
+# Likewise for the service itself: if it was switched off from the Overview
+# page, an upgrade must not switch it back on.
+SVC_STATE="fresh"
+if [ -x /etc/init.d/clashwrt ]; then
+	if /etc/init.d/clashwrt enabled >/dev/null 2>&1; then SVC_STATE="on"; else SVC_STATE="off"; fi
+fi
+
 say "installing firewall engine and service"
 idir /usr/libexec/clashwrt
 for f in "$SRC"/clashwrt/files/usr/libexec/clashwrt/*.sh; do
@@ -365,7 +372,11 @@ fi
 # enable
 # --------------------------------------------------------------------------
 
-/etc/init.d/clashwrt enable >/dev/null 2>&1 || true
+if [ "$SVC_STATE" = "off" ]; then
+	say "ClashWrt is switched off on this router; leaving it that way"
+else
+	/etc/init.d/clashwrt enable >/dev/null 2>&1 || true
+fi
 if [ "$CORE_STATE" = "off" ]; then
 	say "the mihomo core is switched off on this router; leaving it that way"
 else

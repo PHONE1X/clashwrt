@@ -1,8 +1,13 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# The three kill switches behind the Overview page, as one scriptable thing.
+# The kill switches behind the Overview page, as one scriptable thing.
 #
+#   svc    the whole ClashWrt service: its init script, which owns the proxy
+#          rules and the watchdog. Off means disabled at boot AND stopped, so
+#          it stays off across a reboot, the watchdog sleeps and hotplug
+#          leaves the ruleset alone. The UCI settings are not touched, so
+#          switching it on again brings back exactly what was there before.
 #   proxy  the firewall side: the rules that send LAN traffic into mihomo.
 #          Off means the router forwards everything directly, as if ClashWrt
 #          were not installed. It owns the UCI 'enabled' flag.
@@ -21,6 +26,7 @@
 # after a reboot.
 #
 # Usage: powerctl.sh status
+#        powerctl.sh svc   on|off
 #        powerctl.sh proxy on|off
 #        powerctl.sh core  on|off
 #        powerctl.sh all   on|off
@@ -77,6 +83,8 @@ rules_present() { nft list table inet clashwrt >/dev/null 2>&1; }
 core_running()  { pidof mihomo >/dev/null 2>&1; }
 core_installed() { [ -x "$CORE_INIT" ] && { command -v mihomo >/dev/null 2>&1 || [ -x /usr/bin/mihomo ]; }; }
 core_boot()     { [ -x "$CORE_INIT" ] && "$CORE_INIT" enabled >/dev/null 2>&1; }
+svc_enabled()   { [ -x "$SELF_INIT" ] && "$SELF_INIT" enabled >/dev/null 2>&1; }
+wd_running()    { [ -x "$WATCHDOG" ] && "$WATCHDOG" status 2>/dev/null | grep -q '^wd_running:[[:space:]]*yes'; }
 
 set_enabled() {
 	uci -q set "$NAME.config.enabled=$1" || return 1
@@ -94,6 +102,8 @@ wait_core() {
 }
 
 do_status() {
+	echo -n "service:         "
+	svc_enabled && echo on || echo off
 	echo -n "proxy:           "
 	proxy_enabled && echo on || echo off
 	echo -n "rules:           "
@@ -128,7 +138,52 @@ proxy_off() {
 	echo "proxy switched off"
 }
 
+svc_off() {
+	[ -x "$SELF_INIT" ] || die "$SELF_INIT is missing; ClashWrt is not installed properly"
+	if ! svc_enabled && ! rules_present && [ ! -e "$FLAG" ] && ! wd_running; then
+		echo "ClashWrt was already off"
+		return 0
+	fi
+	# disable first: if the stop below is interrupted, the next boot still
+	# honours the choice
+	"$SELF_INIT" disable >/dev/null 2>&1
+	svc_enabled && die "could not disable $SELF_INIT, so it would come back after a reboot"
+	"$SELF_INIT" stop >/dev/null 2>&1
+	rm -f "$FLAG"
+	rules_present && die "ClashWrt is disabled, but the proxy rules are still loaded; run '$SELF_INIT stop' and look at 'logread -e $NAME'"
+	local i=0
+	while wd_running && [ "$i" -lt 5 ]; do
+		sleep 1
+		i=$((i + 1))
+	done
+	wd_running && die "ClashWrt is disabled, but the watchdog is still running; run '$SELF_INIT stop'"
+	log "ClashWrt switched off"
+	echo "ClashWrt switched off"
+}
+
+svc_on() {
+	[ -x "$SELF_INIT" ] || die "$SELF_INIT is missing; ClashWrt is not installed properly"
+	if svc_enabled && { ! proxy_enabled || rules_present; }; then
+		echo "ClashWrt was already on"
+		return 0
+	fi
+	# same rule as switching the proxy on: never steer traffic into a core
+	# that is not there
+	if proxy_enabled && ! core_running; then
+		die "the proxy is set to on but the mihomo core is not running; start the core first ('core on'), then switch ClashWrt on"
+	fi
+	"$SELF_INIT" enable >/dev/null 2>&1
+	svc_enabled || die "could not enable $SELF_INIT"
+	"$SELF_INIT" start >/dev/null 2>&1
+	if proxy_enabled && ! rules_present; then
+		die "ClashWrt is enabled but the proxy rules did not load (see 'logread -e $NAME')"
+	fi
+	log "ClashWrt switched on"
+	echo "ClashWrt switched on"
+}
+
 proxy_on() {
+	svc_enabled || die "ClashWrt is switched off; switch it on first"
 	if proxy_enabled && rules_present && [ ! -e "$FLAG" ]; then
 		echo "proxy was already on"
 		return 0
@@ -199,9 +254,9 @@ case "${1:-}:${2:-}" in
 		do_status
 		exit 0
 		;;
-	proxy:on|proxy:off|core:on|core:off|all:on|all:off) ;;
+	svc:on|svc:off|proxy:on|proxy:off|core:on|core:off|all:on|all:off) ;;
 	*)
-		echo "usage: $0 status | proxy on|off | core on|off | all on|off" >&2
+		echo "usage: $0 status | svc on|off | proxy on|off | core on|off | all on|off" >&2
 		exit 1
 		;;
 esac
@@ -209,6 +264,8 @@ esac
 take_lock
 
 case "$1:$2" in
+	svc:off)   svc_off ;;
+	svc:on)    svc_on ;;
 	proxy:off) proxy_off ;;
 	proxy:on)  proxy_on ;;
 	core:off)  core_off ;;

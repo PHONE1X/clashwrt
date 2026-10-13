@@ -40,13 +40,23 @@ function describe(e) {
 	return String(e.message || e);
 }
 
-/* What the router is doing right now, in one word. Order matters: the
- * watchdog's two states only mean anything while the proxy is on, and a
- * missing core beats a healthy-looking rule set. */
+/* An older powerctl.sh reports no 'service' line; that is not "off". */
+function serviceOn(st) {
+	return !st || st['service'] !== 'off';
+}
+
+/* What the router is doing right now, in one word. Order matters: a service
+ * the user switched off outranks everything, the watchdog's two states only
+ * mean anything while the proxy is on, and a missing core beats a
+ * healthy-looking rule set. */
 function classify(st) {
 	if (!st || !st['proxy'])
 		return { key: 'unknown', tone: 'gray', label: _('Unknown'),
 			message: _('The router did not answer. Reload the page.') };
+
+	if (!serviceOn(st))
+		return { key: 'svc_off', tone: 'gray', label: _('Service off'),
+			message: _('ClashWrt is switched off. All traffic goes out directly and the watchdog sleeps.') };
 
 	var proxyOn = st['proxy'] === 'on';
 	var coreUp = st['core'] === 'running';
@@ -96,6 +106,7 @@ return baseclass.extend({
 	parseStatus: parseStatus,
 	describe: describe,
 	classify: classify,
+	serviceOn: serviceOn,
 	pill: pill,
 	TONES: TONES,
 
@@ -106,7 +117,7 @@ return baseclass.extend({
 			.catch(function () { return {}; });
 	},
 
-	/* target: proxy | core | all, state: 'on' | 'off'. Resolves with
+	/* target: svc | proxy | core | all, state: 'on' | 'off'. Resolves with
 	 * {ok, text, status} whatever happens, so the caller has one path. */
 	set: function (target, state) {
 		return fs.exec(POWERCTL, [target, state])
