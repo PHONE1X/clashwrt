@@ -30,7 +30,7 @@
 # as every other change to the ruleset. The flag lives in /var/run, so a
 # reboot starts proxy-first.
 #
-# Usage: watchdog.sh run | probe | status | reset
+# Usage: watchdog.sh run | probe | status | reset | stop
 
 . "${CLASHWRT_FUNCTIONS:-/lib/functions.sh}"
 
@@ -497,13 +497,30 @@ do_reset() {
 	echo "proxy rules restored"
 }
 
+# Stop the daemon by the pid it wrote, for when procd no longer owns it (the
+# init script normally does this). TERM first, so it records 'stopped'.
+do_stop() {
+	local pid i=0
+	pid="$(state_get pid)"
+	case "$pid" in ''|*[!0-9]*) echo "the watchdog is not running"; return 0 ;; esac
+	kill -0 "$pid" 2>/dev/null || { echo "the watchdog is not running"; return 0; }
+	kill -TERM "$pid" 2>/dev/null
+	while kill -0 "$pid" 2>/dev/null && [ "$i" -lt 5 ]; do
+		sleep 1
+		i=$((i + 1))
+	done
+	kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null
+	echo "watchdog stopped"
+}
+
 main() {
 	case "${1:-}" in
 		run)    do_run ;;
 		probe)  do_probe ;;
 		status) do_status ;;
 		reset)  do_reset ;;
-		*) echo "usage: $0 run|probe|status|reset" >&2; exit 1 ;;
+		stop)   do_stop ;;
+		*) echo "usage: $0 run|probe|status|reset|stop" >&2; exit 1 ;;
 	esac
 }
 

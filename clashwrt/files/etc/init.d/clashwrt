@@ -12,6 +12,14 @@ FW=/usr/libexec/clashwrt/fw.sh
 WATCHDOG=/usr/libexec/clashwrt/watchdog.sh
 FLAG=/var/run/clashwrt/autobypass
 
+# Switched on = started at boot, i.e. any S link (rc.common's 'enabled' also
+# insists on the K link under today's numbers). Switched off from the
+# Overview page, a hand-run start or restart builds nothing and starts no
+# watchdog: fw.sh refuses too, and this keeps the daemon down.
+switched_on() {
+	ls /etc/rc.d/S[0-9][0-9]clashwrt >/dev/null 2>&1
+}
+
 boot() {
 	# On boot, mihomo has not started yet, so the tun device cannot exist.
 	# Skip the wait here and let hotplug apply the routing once it appears.
@@ -20,6 +28,7 @@ boot() {
 
 start_service() {
 	$FW apply
+	switched_on || return 0
 
 	# Only worth a process when there is a ruleset to lift: with the proxy off
 	# the watchdog has nothing to protect, and it never switches it on. On
@@ -45,7 +54,7 @@ stop_service() {
 # Switched off from the Overview page means disabled at boot; a settings
 # change must not bring a service the user turned off back to life.
 reload_service() {
-	enabled || return 0
+	switched_on || return 0
 	stop
 	start
 }

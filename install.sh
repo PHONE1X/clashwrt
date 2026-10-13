@@ -204,7 +204,7 @@ fi
 # page, an upgrade must not switch it back on.
 SVC_STATE="fresh"
 if [ -x /etc/init.d/clashwrt ]; then
-	if /etc/init.d/clashwrt enabled >/dev/null 2>&1; then SVC_STATE="on"; else SVC_STATE="off"; fi
+	if ls /etc/rc.d/S[0-9][0-9]clashwrt >/dev/null 2>&1; then SVC_STATE="on"; else SVC_STATE="off"; fi
 fi
 
 say "installing firewall engine and service"

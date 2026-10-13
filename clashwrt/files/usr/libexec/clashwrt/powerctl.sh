@@ -8,6 +8,10 @@
 #          it stays off across a reboot, the watchdog sleeps and hotplug
 #          leaves the ruleset alone. The UCI settings are not touched, so
 #          switching it on again brings back exactly what was there before.
+#          The status reports both halves: 'service' is whether it starts at
+#          boot, 'svc_live' whether any of it (rules, watchdog) runs right
+#          now. They can disagree -- LuCI's Startup page, a hand-run
+#          'disable', an interrupted stop -- and the page shows what runs.
 #   proxy  the firewall side: the rules that send LAN traffic into mihomo.
 #          Off means the router forwards everything directly, as if ClashWrt
 #          were not installed. It owns the UCI 'enabled' flag.
@@ -21,9 +25,9 @@
 # browser tabs and a cron job cannot interleave. A mutating action ends by
 # printing the status, so one round trip updates the page.
 #
-# The clashwrt init script stays enabled at boot on purpose: with 'enabled'
-# at 0 it does nothing, and with it at 1 it is exactly what restores the proxy
-# after a reboot.
+# Short of 'svc off', the clashwrt init script stays enabled at boot on
+# purpose: with 'enabled' at 0 it does nothing, and with it at 1 it is exactly
+# what restores the proxy after a reboot.
 #
 # Usage: powerctl.sh status
 #        powerctl.sh svc   on|off
@@ -36,7 +40,9 @@ LOCKFILE="/var/lock/clashwrt-power.lock"
 CORE_INIT="/etc/init.d/mihomo"
 SELF_INIT="/etc/init.d/clashwrt"
 WATCHDOG="/usr/libexec/clashwrt/watchdog.sh"
+FW="/usr/libexec/clashwrt/fw.sh"
 FLAG="/var/run/clashwrt/autobypass"
+RCD="/etc/rc.d"
 
 log() { logger -t "$NAME" "$@"; return 0; }
 die() {
@@ -83,8 +89,14 @@ rules_present() { nft list table inet clashwrt >/dev/null 2>&1; }
 core_running()  { pidof mihomo >/dev/null 2>&1; }
 core_installed() { [ -x "$CORE_INIT" ] && { command -v mihomo >/dev/null 2>&1 || [ -x /usr/bin/mihomo ]; }; }
 core_boot()     { [ -x "$CORE_INIT" ] && "$CORE_INIT" enabled >/dev/null 2>&1; }
-svc_enabled()   { [ -x "$SELF_INIT" ] && "$SELF_INIT" enabled >/dev/null 2>&1; }
+# Starts at boot = any S link, which is all /etc/rc.d acts on. rc.common's
+# 'enabled' also wants the K link under today's exact numbers, so a router
+# with only an S link boots the service yet reads as disabled.
+svc_enabled()   { ls "$RCD"/S[0-9][0-9]"$NAME" >/dev/null 2>&1; }
 wd_running()    { [ -x "$WATCHDOG" ] && "$WATCHDOG" status 2>/dev/null | grep -q '^wd_running:[[:space:]]*yes'; }
+wd_wanted()     { proxy_enabled && [ "$(uci -q get "$NAME.config.watchdog")" = "1" ]; }
+# whether anything of the service is at work right now, whatever boot says
+svc_live()      { rules_present || wd_running; }
 
 set_enabled() {
 	uci -q set "$NAME.config.enabled=$1" || return 1
@@ -104,6 +116,8 @@ wait_core() {
 do_status() {
 	echo -n "service:         "
 	svc_enabled && echo on || echo off
+	echo -n "svc_live:        "
+	svc_live && echo yes || echo no
 	echo -n "proxy:           "
 	proxy_enabled && echo on || echo off
 	echo -n "rules:           "
@@ -149,21 +163,36 @@ svc_off() {
 	"$SELF_INIT" disable >/dev/null 2>&1
 	svc_enabled && die "could not disable $SELF_INIT, so it would come back after a reboot"
 	"$SELF_INIT" stop >/dev/null 2>&1
+
+	# The init script's stop is the normal way down, but it only reaches what
+	# procd still owns, and it says nothing when part of it fails. Whatever
+	# is left gets taken down directly: procd's record of the service (so a
+	# respawn cannot bring the watchdog back), then the watchdog by its pid,
+	# then the rules. fw.sh no longer builds rules for a disabled service, so
+	# a watchdog caught mid-restore cannot put them back behind this.
+	if wd_running; then
+		command -v ubus >/dev/null 2>&1 && ubus call service delete "{\"name\":\"$NAME\"}" >/dev/null 2>&1
+		"$WATCHDOG" stop >/dev/null 2>&1
+	fi
 	rm -f "$FLAG"
-	rules_present && die "ClashWrt is disabled, but the proxy rules are still loaded; run '$SELF_INIT stop' and look at 'logread -e $NAME'"
+	rules_present && "$FW" flush >/dev/null 2>&1
+
+	rules_present && die "ClashWrt is disabled, but the proxy rules are still loaded; run '$FW flush' and look at 'logread -e $NAME'"
 	local i=0
 	while wd_running && [ "$i" -lt 5 ]; do
 		sleep 1
 		i=$((i + 1))
 	done
-	wd_running && die "ClashWrt is disabled, but the watchdog is still running; run '$SELF_INIT stop'"
+	wd_running && die "ClashWrt is disabled, but the watchdog is still running; run '$WATCHDOG stop'"
 	log "ClashWrt switched off"
 	echo "ClashWrt switched off"
 }
 
 svc_on() {
 	[ -x "$SELF_INIT" ] || die "$SELF_INIT is missing; ClashWrt is not installed properly"
-	if svc_enabled && { ! proxy_enabled || rules_present; }; then
+	# on means: starts at boot, and runs now what the settings ask for
+	if svc_enabled && { ! proxy_enabled || rules_present || [ -e "$FLAG" ]; } &&
+		{ ! wd_wanted || wd_running; }; then
 		echo "ClashWrt was already on"
 		return 0
 	fi
@@ -175,8 +204,17 @@ svc_on() {
 	"$SELF_INIT" enable >/dev/null 2>&1
 	svc_enabled || die "could not enable $SELF_INIT"
 	"$SELF_INIT" start >/dev/null 2>&1
-	if proxy_enabled && ! rules_present; then
+	if proxy_enabled && [ ! -e "$FLAG" ] && ! rules_present; then
 		die "ClashWrt is enabled but the proxy rules did not load (see 'logread -e $NAME')"
+	fi
+	# procd spawns the watchdog on its own time
+	local i=0
+	while wd_wanted && ! wd_running && [ "$i" -lt 5 ]; do
+		sleep 1
+		i=$((i + 1))
+	done
+	if wd_wanted && ! wd_running; then
+		echo "warning: the watchdog did not start (see 'logread -e $NAME')" >&2
 	fi
 	log "ClashWrt switched on"
 	echo "ClashWrt switched on"

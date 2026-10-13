@@ -47,8 +47,19 @@ TABLE="inet clashwrt"
 RUNDIR="/var/run/clashwrt"
 FLAG="$RUNDIR/autobypass"
 LOCKFILE="/var/lock/clashwrt-fw.lock"
+RCD="/etc/rc.d"
 
 log() { logger -t "$NAME" "$@"; [ -t 1 ] && echo "$NAME: $*" >&2; return 0; }
+
+# Switched off from the Overview page ('powerctl.sh svc off') means not
+# started at boot, i.e. no S link; that is all /etc/rc.d acts on.
+svc_enabled() { ls "$RCD"/S[0-9][0-9]"$NAME" >/dev/null 2>&1; }
+
+wd_running() {
+	local pid
+	pid="$(sed -n 's/^pid:[[:space:]]*//p' "$RUNDIR/watchdog.state" 2>/dev/null | head -n1)"
+	[ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
 
 # Failures always go to stderr, tty or not: this runs from init scripts, from
 # hotplug and from LuCI, and a misconfiguration that explains itself only in
@@ -564,6 +575,9 @@ do_apply() {
 	load_cfg
 	[ "$enabled" = 1 ] || { log "disabled in UCI, nothing to do"; do_flush_quiet; exit 0; }
 	[ ! -e "$FLAG" ] || { log "auto-bypass is active, leaving traffic direct (the watchdog restores it)"; do_flush_quiet; exit 0; }
+	# Whoever asks -- a late watchdog restore, a hand-run start or restart --
+	# a service switched off stays off.
+	svc_enabled || { log "ClashWrt is switched off, nothing to do"; do_flush_quiet; exit 0; }
 	resolve_ports
 	check_prereq
 	ensure_fw4_zone
@@ -596,10 +610,12 @@ do_status() {
 	echo -n "autobypass:   "
 	[ -e "$FLAG" ] && echo yes || echo no
 	echo -n "service:      "
-	/etc/init.d/clashwrt enabled >/dev/null 2>&1 && echo on || echo off
+	svc_enabled && echo on || echo off
 	config_get wd config watchdog 0
 	echo -n "watchdog:     "
 	[ "$wd" = "1" ] && echo on || echo off
+	echo -n "wd_running:   "
+	wd_running && echo yes || echo no
 	echo -n "egress:       "
 	if [ -e "$FLAG" ]; then
 		echo bypassed
@@ -647,7 +663,7 @@ do_check() {
 	[ "$enabled" = 1 ] || exit 0
 	[ ! -e "$FLAG" ] || exit 0
 	# switched off from the Overview page: do not rebuild what it stopped
-	/etc/init.d/clashwrt enabled >/dev/null 2>&1 || exit 0
+	svc_enabled || exit 0
 	resolve_ports
 
 	nft list table $TABLE >/dev/null 2>&1 || { log "nft table missing, re-applying"; do_apply; exit 0; }
