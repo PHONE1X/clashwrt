@@ -306,51 +306,77 @@ function indentOf(line) {
 	return m ? m[1].length : 0;
 }
 
-/* Find the block of a named proxy-group: [startLine, endLineExclusive].
+/* One YAML scalar from the start of `s`: 'single', "double" or plain.
+ * A plain scalar ends at "," or "}" inside a {flow} mapping, and only at
+ * " #" or the end of the line in block style, so "Auto Select" and
+ * "HK, JP" survive intact. Returns null when there is nothing to read. */
+function readScalar(s, flow) {
+	var m;
+	s = String(s).replace(/^\s+/, '');
+	if (s.charAt(0) === "'") {
+		m = s.match(/^'((?:[^']|'')*)'/);
+		return m ? m[1].replace(/''/g, "'") : null;
+	}
+	if (s.charAt(0) === '"') {
+		m = s.match(/^"((?:[^"\\]|\\.)*)"/);
+		return m ? m[1].replace(/\\(.)/g, '$1') : null;
+	}
+	if (flow) s = s.split(/[,}]/)[0];
+	s = s.replace(/\s+#.*$/, '').replace(/\s+$/, '');
+	return s ? s : null;
+}
+
+/* Every proxy-group as { name, start, end } (end exclusive), in file order.
  *
  * Indentation is what separates a new group from a nested list entry -- both
  * begin with "- ", and the entries under `use:` or `proxies:` would otherwise
  * look like the start of the next group and cut the block short. */
-function findGroup(lines, name) {
-	var i, gi = -1;
-	for (i = 0; i < lines.length; i++) {
-		if (/^proxy-groups:\s*$/.test(lines[i])) { gi = i; break; }
+function groupEntries(lines) {
+	var out = [];
+	var r = sectionRange(lines, 'proxy-groups');
+	if (!r) return out;
+	var base = -1, i, m;
+	for (i = r.start; i < r.end; i++) {
+		m = lines[i].match(/^(\s*)-\s/);
+		if (m) { base = m[1].length; break; }
 	}
-	if (gi < 0) return null;
+	if (base < 0) return out;
 
-	/* the indent of the first list item defines the level groups live at */
-	var baseIndent = -1;
-	for (i = gi + 1; i < lines.length; i++) {
-		if (!lines[i].trim()) continue;
-		var mm = lines[i].match(/^(\s*)-\s/);
-		if (mm) { baseIndent = mm[1].length; break; }
-		if (indentOf(lines[i]) === 0) return null;   /* section is empty */
-	}
-	if (baseIndent < 0) return null;
-
-	var isGroupStart = function (ln) {
-		var m = ln.match(/^(\s*)-\s/);
-		return !!m && m[1].length === baseIndent;
+	var startsHere = function (ln) {
+		var mm = ln.match(/^(\s*)-\s/);
+		return !!mm && mm[1].length === base;
 	};
 
-	var start = -1;
-	for (i = gi + 1; i < lines.length; i++) {
-		var ln = lines[i];
-		if (!ln.trim()) continue;
+	var starts = [];
+	for (i = r.start; i < r.end; i++)
+		if (startsHere(lines[i])) starts.push(i);
 
-		/* a non-indented key that is not a list item ends the section */
-		if (indentOf(ln) === 0 && !/^\s*-/.test(ln)) {
-			if (start >= 0) return { start: start, end: i };
-			break;
+	starts.forEach(function (s, k) {
+		var end = k + 1 < starts.length ? starts[k + 1] : r.end;
+		var name = null, n;
+		n = lines[s].match(/^\s*-\s*\{([\s\S]*)$/);
+		if (n) {
+			m = n[1].match(/(?:^|[{,])\s*name:\s*([\s\S]*)$/);
+			if (m) name = readScalar(m[1], true);
+		} else {
+			m = lines[s].match(/^\s*-\s+name:\s*([\s\S]*)$/);
+			if (m) name = readScalar(m[1], false);
 		}
+		for (var j = s + 1; name === null && j < end; j++) {
+			m = lines[j].match(/^(\s+)name:\s*([\s\S]*)$/);
+			if (m && m[1].length > base) name = readScalar(m[2], false);
+		}
+		if (name !== null) out.push({ name: name, start: s, end: end });
+	});
+	return out;
+}
 
-		if (isGroupStart(ln)) {
-			if (start >= 0) return { start: start, end: i };
-			if (new RegExp('^\\s*-\\s*(\\{\\s*)?name:\\s*[\'"]?' + name + '[\'"]?\\s*(,|$|\\})').test(ln))
-				start = i;
-		}
-	}
-	return start >= 0 ? { start: start, end: lines.length } : null;
+/* [startLine, endLineExclusive] of a named proxy-group, or null. */
+function findGroup(lines, name) {
+	var all = groupEntries(lines);
+	for (var i = 0; i < all.length; i++)
+		if (all[i].name === name) return { start: all[i].start, end: all[i].end };
+	return null;
 }
 
 function rulesRange(lines) {
@@ -454,19 +480,6 @@ var SITE_PRESETS = {
 	}
 };
 
-/* Second-level public suffixes, so "bbc.co.uk" is not reduced to "co.uk".
- * Not the whole Public Suffix List -- the common ones. */
-var SLD_SUFFIXES = [
-	'co.uk', 'org.uk', 'ac.uk', 'gov.uk', 'me.uk', 'ltd.uk', 'plc.uk',
-	'com.ru', 'org.ru', 'net.ru', 'msk.ru', 'spb.ru',
-	'com.au', 'net.au', 'org.au', 'co.nz', 'co.za', 'co.jp', 'ne.jp', 'or.jp',
-	'co.kr', 'co.in', 'co.il', 'co.id', 'co.th',
-	'com.br', 'com.ar', 'com.mx', 'com.co',
-	'com.cn', 'net.cn', 'org.cn', 'com.hk', 'com.tw', 'com.sg', 'com.my', 'com.ph', 'com.vn',
-	'com.tr', 'com.ua', 'kiev.ua', 'com.by', 'com.kz', 'com.pl', 'com.es', 'com.pt', 'com.gr',
-	'com.eg', 'com.sa', 'com.pk', 'com.ng'
-];
-
 function normDomains(list) {
 	var seen = {}, out = [];
 	(list || []).forEach(function (d) {
@@ -486,14 +499,6 @@ function validHost(h) {
 	return !/^\d+$/.test(labels[labels.length - 1]);
 }
 
-function registrable(host) {
-	var l = host.split('.');
-	if (l.length <= 2) return host;
-	var last2 = l.slice(-2).join('.');
-	if (SLD_SUFFIXES.indexOf(last2) >= 0) return l.slice(-3).join('.');
-	return last2;
-}
-
 function presetOf(token, host) {
 	for (var k in SITE_PRESETS) {
 		var p = SITE_PRESETS[k];
@@ -508,7 +513,9 @@ function presetOf(token, host) {
 }
 
 /* URL, bare host or service name -> list of DOMAIN-SUFFIX values.
- * Empty list means the input was rejected. */
+ * A host that matches no preset is kept exactly as typed: trimming it to a
+ * guessed registrable domain would turn foo.github.io into github.io and
+ * proxy every site hosted there. Empty list means the input was rejected. */
 function siteDomains(input) {
 	var s = String(input === undefined || input === null ? '' : input).trim().toLowerCase();
 	if (!s || /\s/.test(s)) return [];
@@ -529,7 +536,7 @@ function siteDomains(input) {
 
 	var p = presetOf(null, s);
 	if (p) return p.suffixes.slice();
-	return [registrable(s)];
+	return [s];
 }
 
 function detectSplit(text) {
@@ -599,28 +606,7 @@ function listUnder(lines, range, key) {
 }
 
 function groupNames(lines) {
-	var names = [];
-	var r = sectionRange(lines, 'proxy-groups');
-	if (!r) return names;
-	var base = -1, i;
-	for (i = r.start; i < r.end; i++) {
-		var mm = lines[i].match(/^(\s*)-\s/);
-		if (mm) { base = mm[1].length; break; }
-	}
-	if (base < 0) return names;
-	var nameRe = /(?:^\s*-\s*(?:\{\s*)?|[{,]\s*)name:\s*(?:'([^']*)'|"([^"]*)"|([^,}\s#]+))/;
-	var startsHere = function (ln) {
-		var m = ln.match(/^(\s*)-\s/);
-		return !!m && m[1].length === base;
-	};
-	for (i = r.start; i < r.end; i++) {
-		if (!startsHere(lines[i])) continue;
-		var n = lines[i].match(nameRe);
-		for (var j = i + 1; !n && j < r.end && !startsHere(lines[j]); j++)
-			n = lines[j].match(/^\s+name:\s*(?:'([^']*)'|"([^"]*)"|([^,}\s#]+))/);
-		if (n) names.push(n[1] || n[2] || n[3]);
-	}
-	return names;
+	return groupEntries(lines).map(function (g) { return g.name; });
 }
 
 function filterOf(lines, group) {
@@ -716,9 +702,15 @@ function parseConfig(text) {
 		}
 		if (lastMatch !== null)
 			res.routing = lastMatch === 'DIRECT' ? 'direct_except_list' : 'proxy_except_ru';
-		if (suffixRules.length) {
-			res.extraGroup = suffixRules[0].g;
-			res.extraDomains = normDomains(suffixRules
+		/* Only rules that send a real site to a proxy-group count. System and
+		 * service entries (DOMAIN-SUFFIX,local,DIRECT and the like) name no
+		 * proxy-group or are not a hostname, so they cannot pick the target. */
+		var mine = suffixRules.filter(function (x) {
+			return x.g !== UDP_GROUP && res.groups.indexOf(x.g) >= 0 && validHost(x.d);
+		});
+		if (mine.length) {
+			res.extraGroup = mine[0].g;
+			res.extraDomains = normDomains(mine
 				.filter(function (x) { return x.g === res.extraGroup; })
 				.map(function (x) { return x.d; }));
 		}
@@ -741,8 +733,13 @@ function addSiteRules(text, domains, opts) {
 	var rr = sectionRange(lines, 'rules');
 	if (!rr) throw new Error('no rules: section found');
 
+	if (/[,\r\n]/.test(group))
+		throw new Error('group name "' + group + '" cannot be used in a rule');
 	if (group !== 'DIRECT' && group !== 'REJECT' && groupNames(lines).indexOf(group) < 0)
 		throw new Error('no proxy-group named "' + group + '"');
+	doms.forEach(function (d) {
+		if (!validHost(d)) throw new Error('not a valid domain: "' + d + '"');
+	});
 
 	var split = group === 'Proxy' && detectSplit(text).on;
 
@@ -789,6 +786,7 @@ return baseclass.extend({
 	siteDomains: siteDomains,
 	normDomains: normDomains,
 	parseConfig: parseConfig,
+	groupNames: groupNames,
 	addSiteRules: addSiteRules,
 
 	/* Is the split currently in effect? */

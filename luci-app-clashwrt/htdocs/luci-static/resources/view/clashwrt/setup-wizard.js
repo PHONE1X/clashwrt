@@ -7,7 +7,7 @@
 'require dom';
 'require clashwrt.generator as gen';
 
-var UI_VERSION = '0.2.1';
+var UI_VERSION = '0.3.0';
 
 var STAGING = '/tmp/clashwrt-staging';
 var CONFCTL = '/usr/libexec/clashwrt/confctl.sh';
@@ -19,7 +19,7 @@ function say(node, ok, text) {
 	dom.content(node, E('div', {
 		'class': ok ? 'alert-message success' : 'alert-message warning',
 		'style': 'white-space:pre-wrap;margin:8px 0 0 0'
-	}, text));
+	}, [ text ]));
 }
 
 function label(t, hint) {
@@ -214,7 +214,7 @@ return view.extend({
 			});
 			if (selected && names.indexOf(selected) < 0) names.push(selected);
 			dom.content(groupSel, names.map(function (n) {
-				return E('option', { 'value': n, 'selected': n === (selected || 'Proxy') ? '' : null }, n);
+				return E('option', { 'value': n, 'selected': n === (selected || 'Proxy') ? '' : null }, [ n ]);
 			}));
 		}
 
@@ -262,10 +262,10 @@ return view.extend({
 			if (!v) { dom.content(siteMsg, ''); return null; }
 			var d = gen.siteDomains(v);
 			if (!d.length) {
-				dom.content(siteMsg, _('Not recognised as a site — enter a URL, a hostname, or a service name.'));
+				dom.content(siteMsg, [ _('Not recognised as a site — enter a URL, a hostname, or a service name.') ]);
 				return null;
 			}
-			dom.content(siteMsg, _('Will add %d domain(s): %s').format(d.length, d.join(', ')));
+			dom.content(siteMsg, [ _('Will add %d domain(s): %s').format(d.length, d.join(', ')) ]);
 			return d;
 		}
 
@@ -276,7 +276,7 @@ return view.extend({
 			siteInput.value = '';
 			renderChips();
 			refreshPreview();
-			dom.content(siteMsg, _('Added %d domain(s): %s').format(d.length, d.join(', ')));
+			dom.content(siteMsg, [ _('Added %d domain(s): %s').format(d.length, d.join(', ')) ]);
 		}
 
 		siteInput.addEventListener('input', previewSite);
@@ -530,8 +530,10 @@ return view.extend({
 						previewKind = 'quick';
 						say(out, true, _('Rules are inserted before the first catch-all rule; the rest of the file is untouched. Review the result below, then confirm.'));
 						ui.showModal(_('Add sites to current configuration'), [
-							E('p', {}, _('This adds %d site(s) to the rules of the installed config.yaml, sending them to "%s". The current file is backed up first, and nothing is installed unless mihomo accepts the result.')
-								.format(ans.extraDomains.length, ans.extraGroup)),
+							E('p', {}, [ _('This adds %d site(s) to the rules of the installed config.yaml, sending them to "%s". The current file is backed up first, and nothing is installed unless mihomo accepts the result.')
+								.format(ans.extraDomains.length, ans.extraGroup) ]),
+							E('div', { 'style': 'font-family:monospace;word-break:break-all;max-height:10em;overflow:auto;margin-bottom:8px' },
+								[ ans.extraDomains.join(', ') ]),
 							E('div', { 'class': 'right' }, [
 								E('button', { 'class': 'cbi-button', 'click': ui.hideModal }, _('Cancel')),
 								' ',
