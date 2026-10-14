@@ -7,7 +7,7 @@
 'require clashwrt.generator as gen';
 'require clashwrt.rulefiles as rulefiles';
 
-var UI_VERSION = '0.2.0';
+var UI_VERSION = '0.2.1';
 
 var STAGING = '/tmp/clashwrt-staging';
 var CONFCTL = '/usr/libexec/clashwrt/confctl.sh';
@@ -113,7 +113,7 @@ function say(node, ok, text) {
 	dom.content(node, E('div', {
 		'class': ok ? 'alert-message success' : 'alert-message warning',
 		'style': 'white-space:pre-wrap;margin:8px 0 0 0'
-	}, text));
+	}, [ text ]));
 }
 
 /* fs.exec resolves whatever the command exits with; only an RPC or permission
@@ -361,12 +361,23 @@ return view.extend({
 				if (n !== gen.UDP_GROUP && names.indexOf(n) < 0) names.push(n);
 			});
 			dom.content(siteGroup, names.map(function (n) {
-				return E('option', { 'value': n, 'selected': n === keep ? '' : null }, n);
+				return E('option', { 'value': n, 'selected': n === keep ? '' : null }, [ n ]);
 			}));
+		}
+		var sitePreview = E('div', { 'style': 'margin-top:4px;font-size:90%;opacity:.85;word-break:break-all' });
+
+		function previewSite() {
+			var d = gen.siteDomains(siteInput.value);
+			dom.content(sitePreview, siteInput.value.trim() ? [
+				d.length
+					? _('Will add %d domain(s): %s').format(d.length, d.join(', '))
+					: _('Not recognised as a site — enter a URL, a hostname, or a service name.')
+			] : '');
 		}
 		fillSiteGroups();
 		siteGroup.addEventListener('focus', fillSiteGroups);
 		siteGroup.addEventListener('mousedown', fillSiteGroups);
+		siteInput.addEventListener('input', previewSite);
 
 		function addSite() {
 			var d = gen.siteDomains(siteInput.value);
@@ -384,6 +395,7 @@ return view.extend({
 				badLine = 0;
 				repaint();
 				siteInput.value = '';
+				previewSite();
 				say(out, true, _('Added %d domain(s) to the editor: %s. Not saved yet — check the syntax, then save.')
 					.format(d.length, d.join(', ')));
 			} catch (e) {
@@ -400,7 +412,8 @@ return view.extend({
 			siteInput,
 			siteGroup,
 			' ',
-			E('button', { 'type': 'button', 'class': 'cbi-button cbi-button-add', 'click': addSite }, _('Add'))
+			E('button', { 'type': 'button', 'class': 'cbi-button cbi-button-add', 'click': addSite }, _('Add')),
+			sitePreview
 		]);
 
 		var BACKUP_NAME_RE = /^config-[A-Za-z0-9._-]+\.yaml$/;
@@ -414,7 +427,7 @@ return view.extend({
 		 * list lands on its neighbour), clamped to the end. */
 		function setBackups(list, pick, index) {
 			backups = list;
-			dom.content(sel, list.map(function (b) { return E('option', { 'value': b }, b); }));
+			dom.content(sel, list.map(function (b) { return E('option', { 'value': b }, [ b ]); }));
 			if (list.length) {
 				var at = list.indexOf(pick);
 				if (at < 0) at = Math.min(Math.max(index || 0, 0), list.length - 1);
@@ -510,7 +523,7 @@ return view.extend({
 				});
 
 				backupModal(_('Rename backup'), E('div', {}, [
-					E('p', {}, _('New name for "%s":').format(oldName)),
+					E('p', {}, [ _('New name for "%s":').format(oldName) ]),
 					input,
 					err
 				]), _('Rename'), 'cbi-button-positive', go);
@@ -526,7 +539,7 @@ return view.extend({
 				var index = sel.selectedIndex;
 				if (!name) return;
 				backupModal(_('Delete backup'),
-					E('p', {}, _('Delete the backup "%s"? This cannot be undone.').format(name)),
+					E('p', {}, [ _('Delete the backup "%s"? This cannot be undone.').format(name) ]),
 					_('Delete'), 'cbi-button-negative', function () {
 						ui.hideModal();
 						dom.content(out, E('em', {}, _('Deleting…')));

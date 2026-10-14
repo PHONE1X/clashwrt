@@ -70,7 +70,7 @@ return view.extend({
 
 		function repaint() {
 			var shown = lines.filter(matches);
-			dom.content(pre, shown.join('\n'));
+			dom.content(pre, [ shown.join('\n') ]);
 			if (autoscroll.checked) pre.scrollTop = pre.scrollHeight;
 			dom.content(statusEl, _('%d line(s)').format(shown.length));
 		}
@@ -166,7 +166,7 @@ return view.extend({
 			 * is perfectly healthy in a file, and that difference is otherwise
 			 * invisible and very confusing. */
 			fs.exec(LOGCTL, ['where']).then(function (r) {
-				dom.content(sourceNote, _('reading from %s').format((r.stdout || '').trim() || '?'));
+				dom.content(sourceNote, [ _('reading from %s').format((r.stdout || '').trim() || '?') ]);
 			}).catch(function () { dom.content(sourceNote, ''); });
 
 			loadSyslog();

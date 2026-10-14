@@ -11,7 +11,7 @@
 'require clashwrt.dashui as dashui';
 'require clashwrt.power as power';
 
-var UI_VERSION = '0.2.6';
+var UI_VERSION = '0.2.7';
 
 var callStatus = function () {
 	return fs.exec('/usr/libexec/clashwrt/fw.sh', ['status'])
@@ -45,7 +45,7 @@ function pill(bg, fg, label) {
 	return E('span', {
 		'style': 'display:inline-block;padding:1px 8px;border-radius:10px;font-size:90%;' +
 			'background:' + bg + ';color:' + fg + ';'
-	}, label);
+	}, [ label ]);
 }
 
 function badge(ok, label) {
@@ -123,16 +123,16 @@ function renderStatus(text) {
 	var modeCell;
 	if (agrees === 'no') {
 		modeCell = E('span', {}, [
-			E('strong', {}, st['mode'] || '?'), ' ',
+			E('strong', {}, [ st['mode'] || '?' ]), ' ',
 			pill('#fce8e6', '#c5221f', _('config.yaml cannot serve this')),
 			E('div', { 'style': 'font-size:90%;opacity:0.8;margin-top:2px' },
-				_('Its inbounds fit: ') + serves)
+				[ _('Its inbounds fit: ') + serves ])
 		]);
 	} else if (agrees === 'yes') {
-		modeCell = E('span', {}, [ E('strong', {}, st['mode'] || '?'), ' ', badge(true, _('matches config.yaml')) ]);
+		modeCell = E('span', {}, [ E('strong', {}, [ st['mode'] || '?' ]), ' ', badge(true, _('matches config.yaml')) ]);
 	} else {
 		modeCell = E('span', {}, [
-			E('strong', {}, st['mode'] || '?'), ' ',
+			E('strong', {}, [ st['mode'] || '?' ]), ' ',
 			pill('#f1f3f4', '#5f6368', _('config.yaml not readable'))
 		]);
 	}
@@ -145,8 +145,8 @@ function renderStatus(text) {
 		[_('mihomo daemon'), badge(st['mihomo'] === 'running', stateWord(st['mihomo']))],
 		[_('Tun device'), badge(st['tun_link'] === 'up', (st['tun_device'] || '') + ' ' + stateWord(st['tun_link']))],
 		[_('Tun route'), badge(st['tun_route'] === 'ok', stateWord(st['tun_route']))],
-		[_('TPROXY port'), E('span', {}, st['tproxy_port'] || '-')],
-		[_('Redirect port'), E('span', {}, st['redir_port'] || '-')]
+		[_('TPROXY port'), E('span', {}, [ st['tproxy_port'] || '-' ])],
+		[_('Redirect port'), E('span', {}, [ st['redir_port'] || '-' ])]
 	];
 
 	return E('table', { 'class': 'table' }, rows.map(function (r) {
@@ -160,7 +160,7 @@ function renderStatus(text) {
 /* Dangerous actions ask first, in one place. */
 function confirmThen(title, body, label, fn) {
 	ui.showModal(title, [
-		E('p', {}, body),
+		E('p', {}, [ body ]),
 		E('div', { 'class': 'right' }, [
 			E('button', { 'class': 'cbi-button', 'click': ui.hideModal }, _('Cancel')),
 			' ',
@@ -187,10 +187,10 @@ function buildStatus(statusText) {
 					var text = (res.stdout || '') + (res.stderr || '');
 					dom.content(out, E('pre', {
 						'style': 'white-space:pre-wrap;margin:6px 0 0 0'
-					}, text || _('No output.')));
+					}, [ text || _('No output.') ]));
 				})
 				.catch(function (e) {
-					dom.content(out, E('pre', {}, String(e)));
+					dom.content(out, E('pre', {}, [ String(e) ]));
 				})
 				.finally(function () { ev.target.disabled = false; });
 		}
@@ -204,7 +204,7 @@ function buildStatus(statusText) {
 		dom.content(actionOut(), E('div', {
 			'class': ok ? 'alert-message success' : 'alert-message warning',
 			'style': 'white-space:pre-wrap;margin-top:6px'
-		}, text));
+		}, [ text ]));
 	}
 
 	function refreshStatus() {
@@ -289,17 +289,17 @@ function buildUpdates() {
 		dom.content(out, E('div', {
 			'class': ok ? 'alert-message success' : 'alert-message warning',
 			'style': 'white-space:pre-wrap;margin-top:8px'
-		}, text));
+		}, [ text ]));
 	}
 
 	function loadCore() {
 		return fs.exec(UPDCTL, ['core-status']).then(function (res) {
 			var st = parseStatus(res.stdout || '');
 			dom.content(coreVer, [
-				E('strong', {}, st['installed'] || '?'),
+				E('strong', {}, [ st['installed'] || '?' ]),
 				' → ',
 				st['latest'] || '?',
-				E('span', { 'style': 'opacity:0.6' }, ' (' + (st['arch'] || '?') + ')')
+				E('span', { 'style': 'opacity:0.6' }, [ ' (' + (st['arch'] || '?') + ')' ])
 			]);
 			dom.content(coreState, updatePill(st['update']));
 			btnCore.disabled = false;
@@ -316,10 +316,10 @@ function buildUpdates() {
 			var have = shortId(st['installed']);
 			var want = shortId(st['latest']);
 			dom.content(selfVer, [
-				E('strong', {}, have || _('unknown')),
+				E('strong', {}, [ have || _('unknown') ]),
 				want ? ' → ' + want : '',
 				st['date'] && st['date'] !== 'unknown'
-					? E('span', { 'style': 'opacity:0.6' }, ' (' + st['date'] + ')')
+					? E('span', { 'style': 'opacity:0.6' }, [ ' (' + st['date'] + ')' ])
 					: ''
 			]);
 			dom.content(selfState, updatePill(st['update']));
@@ -374,7 +374,7 @@ function buildUpdates() {
 			fs.exec(UPDCTL, ['log']).then(function (res) {
 				var text = (res.stdout || '') + (res.stderr || '');
 				misses = 0;
-				dom.content(logBox, text);
+				dom.content(logBox, [ text ]);
 				logBox.scrollTop = logBox.scrollHeight;
 				if (text.indexOf('=== clashwrt update finished') >= 0) {
 					stopFollow();
@@ -460,7 +460,7 @@ function buildSplit() {
 		dom.content(out, E('div', {
 			'class': ok ? 'alert-message success' : 'alert-message warning',
 			'style': 'white-space:pre-wrap;margin-top:8px'
-		}, text));
+		}, [ text ]));
 	}
 
 	fs.exec('/usr/libexec/clashwrt/confctl.sh', ['read']).then(function (res) {
@@ -512,8 +512,8 @@ function buildSplit() {
 }
 
 /* The Flag below only takes effect through Save & Apply at the bottom of the
- * page, which is easy to miss. This button commits just this one option and
- * reloads the service, so the watchdog changes the moment it is pressed. */
+ * page, which is easy to miss. This button commits just this one option;
+ * uci.apply() fires the procd reload trigger, which is the only reload. */
 function buildWatchdogToggle(map, flag) {
 	var on = uci.get('clashwrt', 'config', 'watchdog') === '1';
 	var busy = false;
@@ -531,15 +531,13 @@ function buildWatchdogToggle(map, flag) {
 			uci.save().then(function () {
 				return uci.apply();
 			}).then(function () {
-				return fs.exec('/etc/init.d/clashwrt', ['reload']);
-			}).then(function () {
 				on = next === '1';
 				syncFlag();
 				dom.content(out, E('div', { 'class': 'alert-message success' },
-					on ? _('The watchdog is on.') : _('The watchdog is off.')));
+					[ on ? _('The watchdog is on.') : _('The watchdog is off.') ]));
 			}).catch(function (e) {
 				dom.content(out, E('div', { 'class': 'alert-message warning',
-					'style': 'white-space:pre-wrap' }, _('Could not change the watchdog: %s').format(describe(e))));
+					'style': 'white-space:pre-wrap' }, [ _('Could not change the watchdog: %s').format(describe(e)) ]));
 			}).finally(function () {
 				busy = false;
 				btn.disabled = false;
@@ -657,7 +655,7 @@ return view.extend({
 			_('Turns the proxy off for you if the VPN stops working, and back on when it recovers. Default: off.') +
 			'<details><summary>' + _('How it works') + '</summary>' +
 			_('It tests the proxy every few seconds. After repeated failures with the internet itself up, LAN traffic goes direct until the proxy answers again. Switching the proxy off yourself always wins.') + ' ' +
-			_('While it is bypassed, DNS that dnsmasq forwards to mihomo stops working.') +
+			_('While it is bypassed, DNS is switched to your uplink resolver, and switched back when the proxy returns.') +
 			'</details>');
 		o.default = '0';
 		o.rmempty = false;
@@ -762,7 +760,7 @@ return view.extend({
 
 			var paint = function (text) {
 				var target = document.getElementById('clashwrt-set-status') || node;
-				dom.content(target, E('pre', { 'style': 'margin:0' }, text));
+				dom.content(target, E('pre', { 'style': 'margin:0' }, [ text ]));
 			};
 			fs.exec('/usr/libexec/clashwrt/setctl.sh', ['status'])
 				.then(function (r) { paint((r.stdout || '') + (r.stderr || '')); })
@@ -778,8 +776,8 @@ return view.extend({
 			dom.content(out, E('em', {}, _('Downloading…')));
 			return fs.exec('/usr/libexec/clashwrt/setctl.sh', ['update', 'force'])
 				.then(function () { return fs.exec('/usr/libexec/clashwrt/setctl.sh', ['status']); })
-				.then(function (r) { dom.content(out, E('pre', { 'style': 'margin:0' }, r.stdout || '')); })
-				.catch(function (e) { dom.content(out, E('pre', {}, String(e.message || e))); });
+				.then(function (r) { dom.content(out, E('pre', { 'style': 'margin:0' }, [ r.stdout || '' ])); })
+				.catch(function (e) { dom.content(out, E('pre', {}, [ String(e.message || e) ])); });
 		};
 
 		/* ---------------- advanced ---------------- */

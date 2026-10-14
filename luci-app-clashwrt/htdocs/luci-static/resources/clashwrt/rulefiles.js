@@ -23,7 +23,7 @@ function say(node, ok, text) {
 	dom.content(node, E('div', {
 		'class': ok ? 'alert-message success' : 'alert-message warning',
 		'style': 'white-space:pre-wrap;margin:8px 0 0 0'
-	}, text));
+	}, [ text ]));
 }
 
 return baseclass.extend({
@@ -54,7 +54,7 @@ return baseclass.extend({
 				openName = name;
 				area.value = res.stdout || '';
 				area.disabled = false;
-				dom.content(current, name);
+				dom.content(current, [ name ]);
 				dom.content(out, '');
 			}).catch(function (e) {
 				say(out, false, (e.stderr || e.stdout || String(e)));
@@ -80,15 +80,15 @@ return baseclass.extend({
 					E('a', {
 						'href': '#',
 						'click': function (ev) { ev.preventDefault(); openFile(f.name); }
-					}, f.name)),
-				E('td', { 'class': 'td left', 'style': 'width:6em' }, String(f.lines)),
-				E('td', { 'class': 'td left', 'style': 'width:8em' }, String(f.bytes)),
+					}, [ f.name ])),
+				E('td', { 'class': 'td left', 'style': 'width:6em' }, [ String(f.lines) ]),
+				E('td', { 'class': 'td left', 'style': 'width:8em' }, [ String(f.bytes) ]),
 				E('td', { 'class': 'td right', 'style': 'width:8em' },
 					E('button', {
 						'class': 'cbi-button cbi-button-remove',
 						'click': function () {
 							ui.showModal(_('Delete file'), [
-								E('p', {}, _('Delete %s? A config that still refers to it will fail to load.').format(f.name)),
+								E('p', {}, [ _('Delete %s? A config that still refers to it will fail to load.').format(f.name) ]),
 								E('div', { 'class': 'right' }, [
 									E('button', { 'class': 'cbi-button', 'click': ui.hideModal }, _('Cancel')),
 									' ',
@@ -143,7 +143,7 @@ return baseclass.extend({
 				openName = n;
 				area.value = '';
 				area.disabled = false;
-				dom.content(current, n);
+				dom.content(current, [ n ]);
 				say(out, true, _('New file staged. It is created on the router when you save.'));
 			}
 		}, _('New file'));
@@ -175,7 +175,7 @@ return baseclass.extend({
 			]),
 
 			E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, _('Files in %s').format(dir || '?')),
+				E('h3', {}, [ _('Files in %s').format(dir || '?') ]),
 				table,
 				E('div', { 'style': 'margin-top:8px' }, [ newName, btnNew ])
 			]),

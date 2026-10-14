@@ -9,7 +9,7 @@
 'require clashwrt.generator as gen';
 'require clashwrt.power as power';
 
-var UI_VERSION = '0.2.3';
+var UI_VERSION = '0.2.4';
 
 var CONFCTL = '/usr/libexec/clashwrt/confctl.sh';
 var UPDCTL = '/usr/libexec/clashwrt/updctl.sh';
@@ -35,7 +35,7 @@ function say(node, ok, text) {
 	dom.content(node, text ? E('div', {
 		'class': ok ? 'alert-message success' : 'alert-message warning',
 		'style': 'white-space:pre-wrap;margin:8px 0 0 0'
-	}, text) : '');
+	}, [ text ]) : '');
 }
 
 return view.extend({
@@ -124,11 +124,6 @@ return view.extend({
 					}, _('Cancel')),
 					' ',
 					E('button', {
-						'class': 'cbi-button cbi-button-negative',
-						'click': function () { ui.hideModal(); act('core', false); }
-					}, _('Turn off the core only')),
-					' ',
-					E('button', {
 						'class': 'cbi-button cbi-button-positive',
 						'click': function () { ui.hideModal(); act('all', false); }
 					}, _('Turn off both (recommended)'))
@@ -191,7 +186,7 @@ return view.extend({
 					if (n !== gen.UDP_GROUP && names.indexOf(n) < 0) names.push(n);
 				});
 			} catch (e) { /* keep the two that always exist */ }
-			dom.content(siteGroup, names.map(function (n) { return E('option', { 'value': n }, n); }));
+			dom.content(siteGroup, names.map(function (n) { return E('option', { 'value': n }, [ n ]); }));
 		}
 		fillGroups(cfgText);
 
@@ -210,8 +205,9 @@ return view.extend({
 					return;
 				}
 				ui.showModal(_('Add sites to current configuration'), [
-					E('p', {}, _('This adds %d site(s) to the rules of the installed config.yaml, sending them to "%s". The current file is backed up first, and nothing is installed unless mihomo accepts the result.')
-						.format(d.length, group)),
+					E('p', {}, [ _('This adds %d site(s) to the rules of the installed config.yaml, sending them to "%s". The current file is backed up first, and nothing is installed unless mihomo accepts the result.')
+						.format(d.length, group) ]),
+					E('pre', { 'style': 'max-height:12em;overflow:auto;white-space:pre-wrap' }, [ d.join('\n') ]),
 					E('div', { 'class': 'right' }, [
 						E('button', { 'class': 'cbi-button', 'click': ui.hideModal }, _('Cancel')),
 						' ',
@@ -277,7 +273,7 @@ return view.extend({
 				b.disabled = true;
 				dom.content(wdOut, E('em', {}, _('Probing…')));
 				power.probe().then(function (r) {
-					dom.content(wdOut, E('pre', { 'style': 'margin:6px 0 0 0;white-space:pre-wrap' }, r.text));
+					dom.content(wdOut, E('pre', { 'style': 'margin:6px 0 0 0;white-space:pre-wrap' }, [ r.text ]));
 				}).then(function () { b.disabled = false; });
 			}
 		}, _('Probe now'));
@@ -326,20 +322,21 @@ return view.extend({
 			var bypassed = s['autobypass'] === 'yes';
 			var kids = [
 				E('h3', {}, _('Watchdog')),
-				E('div', { 'class': 'cw-wd-line' }, wdLine(s)),
+				E('div', { 'class': 'cw-wd-line' }, [ wdLine(s) ]),
 				E('div', { 'style': 'margin-top:8px' }, [ btnProbe ]),
 				wdOut
 			];
 			if (bypassed) kids[2].appendChild(btnForce);
-			if (s['wd_dns_forward'] === 'yes') {
+			if (bypassed && s['wd_dns_forward'] === 'yes') {
 				kids.push(E('div', { 'class': 'cw-wd-dns', 'style': 'margin-top:8px;color:#b06000' },
-					_('If the core stops, website names may stop opening until it is back.')));
+					_('Website names may not open: DNS could not be switched away from the stopped core.')));
 			}
 			kids.push(E('details', { 'style': 'margin-top:8px' }, [
 				E('summary', {}, _('Details')),
-				E('div', { 'style': 'font-size:90%;opacity:.85' },
+				E('div', { 'style': 'font-size:90%;opacity:.85' }, [
 					_('Group: %s · failed probes: %s · passed probes: %s · quick relapses: %s')
-						.format(s['wd_group'] || '?', s['wd_fails'] || '0', s['wd_oks'] || '0', s['wd_flaps'] || '0'))
+						.format(s['wd_group'] || '?', s['wd_fails'] || '0', s['wd_oks'] || '0', s['wd_flaps'] || '0')
+				])
 			]));
 			dom.content(wdBox, kids);
 		}

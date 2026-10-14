@@ -798,9 +798,6 @@ msgstr ""
 msgid "The proxy is still on. With the core off, your network would lose its connection until the proxy is turned off too."
 msgstr ""
 
-msgid "Turn off the core only"
-msgstr ""
-
 msgid "Turn off both (recommended)"
 msgstr ""
 
@@ -855,7 +852,7 @@ msgstr ""
 msgid "Watchdog"
 msgstr ""
 
-msgid "If the core stops, website names may stop opening until it is back."
+msgid "Website names may not open: DNS could not be switched away from the stopped core."
 msgstr ""
 
 msgid "Details"
@@ -948,7 +945,7 @@ msgstr ""
 msgid "It tests the proxy every few seconds. After repeated failures with the internet itself up, LAN traffic goes direct until the proxy answers again. Switching the proxy off yourself always wins."
 msgstr ""
 
-msgid "While it is bypassed, DNS that dnsmasq forwards to mihomo stops working."
+msgid "While it is bypassed, DNS is switched to your uplink resolver, and switched back when the proxy returns."
 msgstr ""
 
 msgid "Destination networks that are never proxied. Default: none."

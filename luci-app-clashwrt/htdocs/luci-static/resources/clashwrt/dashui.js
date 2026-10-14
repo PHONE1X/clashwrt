@@ -12,7 +12,7 @@ function say(node, ok, text) {
 	dom.content(node, E('div', {
 		'class': ok ? 'alert-message success' : 'alert-message warning',
 		'style': 'white-space:pre-wrap;margin:8px 0 0 0'
-	}, text || (ok ? '' : _('No output.'))));
+	}, [ text || (ok ? '' : _('No output.')) ]));
 }
 
 /* fs.exec rejects with an Error when the command fails or is not permitted,
@@ -47,11 +47,11 @@ return baseclass.extend({
 		var uiUrl = 'http://' + window.location.hostname + ':' + apiPort + '/ui/';
 
 		var out = E('div');
-		var cur = E('strong', {}, current || '—');
+		var cur = E('strong', {}, [ current || '—' ]);
 
 		var sel = E('select', { 'class': 'cbi-input-select' },
 			list.length
-				? list.map(function (d) { return E('option', { 'value': d.id }, d.title); })
+				? list.map(function (d) { return E('option', { 'value': d.id }, [ d.title ]); })
 				: [E('option', { 'value': '' }, _('unavailable'))]);
 
 		var customUrl = E('input', {
@@ -67,7 +67,7 @@ return baseclass.extend({
 					'class': 'alert-message success',
 					'style': 'white-space:pre-wrap;margin:8px 0 0 0'
 				}, [
-					E('div', {}, (res.stdout || '') + (res.stderr || '')),
+					E('div', {}, [ (res.stdout || '') + (res.stderr || '') ]),
 					/* A dashboard already open in another tab is held by its
 					 * own service worker until the next navigation, so the
 					 * panel can still look unchanged right after installing. */
@@ -76,7 +76,7 @@ return baseclass.extend({
 				]));
 				btn.disabled = false;
 				return fs.exec(UICTL, ['current']).then(function (r) {
-					dom.content(cur, (r.stdout || '').trim() || '—');
+					dom.content(cur, [ (r.stdout || '').trim() || '—' ]);
 				});
 			}).catch(function (e) {
 				say(out, false, describe(e));

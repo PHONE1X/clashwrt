@@ -804,9 +804,6 @@ msgstr "Выключить ядро?"
 msgid "The proxy is still on. With the core off, your network would lose its connection until the proxy is turned off too."
 msgstr "Прокси всё ещё включён. Если выключить ядро, сеть потеряет соединение, пока не выключить и прокси."
 
-msgid "Turn off the core only"
-msgstr "Выключить только ядро"
-
 msgid "Turn off both (recommended)"
 msgstr "Выключить оба (рекомендуется)"
 
@@ -861,8 +858,8 @@ msgstr "Включить в настройках"
 msgid "Watchdog"
 msgstr "Сторож"
 
-msgid "If the core stops, website names may stop opening until it is back."
-msgstr "Если ядро остановится, сайты по названию могут не открываться, пока оно не заработает снова."
+msgid "Website names may not open: DNS could not be switched away from the stopped core."
+msgstr "Сайты по названию могут не открываться: DNS не удалось переключить с остановленного ядра."
 
 msgid "Details"
 msgstr "Подробности"
@@ -954,8 +951,8 @@ msgstr "Сам выключает прокси, если VPN перестал р
 msgid "It tests the proxy every few seconds. After repeated failures with the internet itself up, LAN traffic goes direct until the proxy answers again. Switching the proxy off yourself always wins."
 msgstr "Он проверяет прокси каждые несколько секунд. После повторных сбоев при работающем интернете трафик сети идёт напрямую, пока прокси не ответит снова. Если вы сами выключили прокси, это решение главнее."
 
-msgid "While it is bypassed, DNS that dnsmasq forwards to mihomo stops working."
-msgstr "Пока идёт обход, DNS, который dnsmasq пересылает в mihomo, не работает."
+msgid "While it is bypassed, DNS is switched to your uplink resolver, and switched back when the proxy returns."
+msgstr "Пока прокси обходится, DNS переключается на резолвер провайдера и возвращается обратно вместе с прокси."
 
 msgid "Destination networks that are never proxied. Default: none."
 msgstr "Сети назначения, которые никогда не проксируются. По умолчанию: нет."
