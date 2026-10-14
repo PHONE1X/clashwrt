@@ -1,0 +1,14 @@
+# Everything here runs under busybox ash on OpenWrt, not a strict POSIX sh.
+shell=sh
+
+# 'local' and 'echo -n' are supported by ash, and every script relies on them.
+disable=SC3043,SC3037
+
+# config_get assigns variables by name, which shellcheck cannot follow.
+disable=SC2034,SC2154
+
+# nft's own set syntax ({ tcp, udp }) passed as plain words, not shell braces.
+disable=SC1083
+
+# Backup names are written by confctl.sh itself, so ls | grep is safe there.
+disable=SC2010

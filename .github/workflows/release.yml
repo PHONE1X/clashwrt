@@ -1,0 +1,49 @@
+name: Release
+
+# Pushing a tag v<version> publishes the release that install.sh and the
+# updater follow. Both download the tag's source tarball, so there is nothing
+# to build or attach: the job only refuses a tag that does not match the
+# packages, then creates the release.
+#
+# The notes come from the annotated tag's message (a lightweight tag gets
+# GitHub's generated list of changes instead):
+#   git tag -a v1.0.4 -F notes.md && git push origin v1.0.4
+# A release that already exists (made by hand with gh or on the web) is left
+# as it is; the checks still run against its tag.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check
+        run: tools/check.sh "$GITHUB_REF_NAME"
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG already exists, leaving it as it is"
+            exit 0
+          fi
+          # actions/checkout fetches the tag as a lightweight ref; the
+          # annotation is needed for --notes-from-tag
+          git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+          # a lightweight tag has no message to take the notes from
+          if [ "$(git cat-file -t "$TAG")" = tag ]; then
+            notes=--notes-from-tag
+          else
+            notes=--generate-notes
+          fi
+          gh release create "$TAG" --verify-tag \
+            --title "ClashWrt ${TAG#v}" "$notes"

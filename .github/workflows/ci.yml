@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # shellcheck and gettext ship with the runner image; node and python3 too.
+      - name: Tools
+        run: |
+          shellcheck --version | head -n2
+          msgfmt --version | head -n1
+          node --version
+          python3 --version
+
+      - name: Check
+        run: tools/check.sh
