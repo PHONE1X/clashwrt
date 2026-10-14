@@ -15,7 +15,9 @@
 #   proxy  the firewall side: the rules that send LAN traffic into mihomo.
 #          Off means the router forwards everything directly, as if ClashWrt
 #          were not installed. It owns the UCI 'enabled' flag.
-#   core   the mihomo daemon itself: running now and started at boot.
+#   core   the mihomo daemon itself: running now and started at boot. Switching
+#          it off is refused while the proxy rules are loaded, as switching
+#          the proxy on is refused while the core is down.
 #   all    both, in the only safe order: switching off takes the proxy rules
 #          away first (so nothing is steered into a dying core), switching on
 #          starts the core first (so nothing is steered into a core that is
@@ -36,13 +38,14 @@
 #        powerctl.sh all   on|off
 
 NAME="clashwrt"
-LOCKFILE="/var/lock/clashwrt-power.lock"
-CORE_INIT="/etc/init.d/mihomo"
-SELF_INIT="/etc/init.d/clashwrt"
-WATCHDOG="/usr/libexec/clashwrt/watchdog.sh"
-FW="/usr/libexec/clashwrt/fw.sh"
-FLAG="/var/run/clashwrt/autobypass"
-RCD="/etc/rc.d"
+# The CLASHWRT_* overrides exist so tests/ can run this file off the router.
+LOCKFILE="${CLASHWRT_LOCKFILE:-/var/lock/clashwrt-power.lock}"
+CORE_INIT="${CLASHWRT_CORE_INIT:-/etc/init.d/mihomo}"
+SELF_INIT="${CLASHWRT_SELF_INIT:-/etc/init.d/clashwrt}"
+WATCHDOG="${CLASHWRT_WATCHDOG:-/usr/libexec/clashwrt/watchdog.sh}"
+FW="${CLASHWRT_FW:-/usr/libexec/clashwrt/fw.sh}"
+FLAG="${CLASHWRT_RUNDIR:-/var/run/clashwrt}/autobypass"
+RCD="${CLASHWRT_RCD:-/etc/rc.d}"
 
 log() { logger -t "$NAME" "$@"; return 0; }
 die() {
@@ -51,38 +54,12 @@ die() {
 	exit 1
 }
 
-# One switch at a time. The wait is bounded (CLASHWRT_LOCK_WAIT seconds,
-# default 10) so a stuck holder shows up as an error in LuCI rather than a
-# request that never returns. The lock belongs to this process and goes with
-# it, however it dies.
-take_lock() {
-	local wait_s="${CLASHWRT_LOCK_WAIT:-10}" i=0 pid
-	case "$wait_s" in ''|*[!0-9]*) wait_s=10 ;; esac
-	mkdir -p "${LOCKFILE%/*}" 2>/dev/null
-
-	# A directory is the lock and its owner's pid says whether the owner is
-	# still alive. A holder that was killed leaves a dead pid behind, which the
-	# next caller clears instead of waiting for it forever. (flock and lock(1)
-	# are not used: both can outlive a killed holder through a child process.)
-	LOCKDIR="$LOCKFILE.d"
-	while ! mkdir "$LOCKDIR" 2>/dev/null; do
-		pid="$(cat "$LOCKDIR/pid" 2>/dev/null)"
-		if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
-			rm -rf "$LOCKDIR"
-			continue
-		fi
-		if [ -z "$pid" ] && [ "$i" -ge 5 ]; then
-			rm -rf "$LOCKDIR"
-			continue
-		fi
-		[ "$i" -lt "$wait_s" ] || die "busy: another clashwrt switch operation held the lock for ${wait_s}s"
-		sleep 1
-		i=$((i + 1))
-	done
-	echo "$$" > "$LOCKDIR/pid"
-	trap 'rm -rf "$LOCKDIR"' EXIT
-	trap 'exit 1' HUP INT TERM
-}
+# One switch at a time, under the lock shared with fw.sh (see lock.sh). The
+# wait is bounded (CLASHWRT_LOCK_WAIT seconds, default 10) so a stuck holder
+# shows up as an error in LuCI rather than a request that never returns.
+# shellcheck source=lock.sh
+. "${CLASHWRT_LIBEXEC:-/usr/libexec/clashwrt}/lock.sh"
+take_lock() { cw_lock "$LOCKFILE" 10 switch; }
 
 proxy_enabled() { [ "$(uci -q get "$NAME.config.enabled")" = "1" ]; }
 rules_present() { nft list table inet clashwrt >/dev/null 2>&1; }
@@ -175,6 +152,7 @@ svc_off() {
 		"$WATCHDOG" stop >/dev/null 2>&1
 	fi
 	rm -f "$FLAG"
+	"$FW" dns-sync >/dev/null 2>&1
 	rules_present && "$FW" flush >/dev/null 2>&1
 
 	rules_present && die "ClashWrt is disabled, but the proxy rules are still loaded; run '$FW flush' and look at 'logread -e $NAME'"
@@ -254,8 +232,10 @@ core_off() {
 		echo "core is not installed"
 		return 0
 	fi
+	# the mirror of proxy_on's refusal: rules steering into a stopped core are
+	# the outage this page exists to prevent
 	if proxy_enabled && rules_present; then
-		echo "warning: the proxy is still on; LAN traffic is steered into a core that is now stopped" >&2
+		die "the proxy is still on; switch it off first (or use 'all off')"
 	fi
 	if core_running || core_boot; then
 		"$CORE_INIT" stop >/dev/null 2>&1
@@ -281,7 +261,7 @@ core_on() {
 	# a fresh core recreates its tun device, which takes the policy route with it
 	if proxy_enabled; then
 		sleep 2
-		/usr/libexec/clashwrt/fw.sh check >/dev/null 2>&1
+		"$FW" check >/dev/null 2>&1
 	fi
 	log "mihomo core switched on"
 	echo "core switched on"

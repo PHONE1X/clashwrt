@@ -54,6 +54,8 @@ fi
 # --------------------------------------------------------------------------
 
 say "tearing down firewall rules and policy routing"
+# without the bypass flag, flush also puts dnsmasq's forward to mihomo back
+rm -f /var/run/clashwrt/autobypass
 if [ -x /usr/libexec/clashwrt/fw.sh ]; then
 	/usr/libexec/clashwrt/fw.sh flush >/dev/null 2>&1 || true
 else
@@ -63,7 +65,8 @@ fi
 /etc/init.d/clashwrt stop    >/dev/null 2>&1 || true
 /etc/init.d/clashwrt disable >/dev/null 2>&1 || true
 rm -rf /var/run/clashwrt
-rm -f /var/lock/clashwrt-fw.lock /var/lock/clashwrt-power.lock
+rm -rf /var/lock/clashwrt-fw.lock.d /var/lock/clashwrt-power.lock.d
+rm -f /etc/clashwrt-dns.bak
 
 # --------------------------------------------------------------------------
 # fw4 zone

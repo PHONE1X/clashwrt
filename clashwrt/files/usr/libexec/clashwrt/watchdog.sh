@@ -32,10 +32,11 @@
 #
 # Usage: watchdog.sh run | probe | status | reset | stop
 
+# shellcheck source=/dev/null
 . "${CLASHWRT_FUNCTIONS:-/lib/functions.sh}"
 
 NAME="clashwrt"
-RUNDIR="/var/run/clashwrt"
+RUNDIR="${CLASHWRT_RUNDIR:-/var/run/clashwrt}"
 FLAG="$RUNDIR/autobypass"
 STATE="$RUNDIR/watchdog.state"
 FW="${CLASHWRT_FW:-/usr/libexec/clashwrt/fw.sh}"
@@ -425,9 +426,10 @@ state_get() {
 	sed -n "s/^$1:[[:space:]]*//p" "$STATE" | head -n1
 }
 
-# Whether dnsmasq hands DNS to mihomo. Bypass lifts the traffic rules, not
-# this, so with it set the LAN keeps resolving through a core that is the
-# thing that died.
+# Whether dnsmasq hands DNS to mihomo. A bypass takes that forward out of
+# dnsmasq (fw.sh autobypass on), so while bypassed this is only true when it
+# could not be taken out -- the LAN is then resolving through the core that
+# died, which is what the UI warns about.
 dns_forwarded() {
 	local s
 	s="$(uci -q get 'dhcp.@dnsmasq[0].server' 2>/dev/null)"

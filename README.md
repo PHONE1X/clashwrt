@@ -187,7 +187,7 @@ Your switch always wins: with the proxy switched off the watchdog is idle and cl
 /usr/libexec/clashwrt/fw.sh autobypass on|off
 ```
 
-The probe needs mihomo's API (`external-controller`) and a group name; leave `watchdog_group` empty to use the group named by the config's final `MATCH` rule (else `Proxy`). If the router's dnsmasq forwards to mihomo's DNS port, a bypass does not bypass DNS, and the Overview and Settings warn about it.
+The probe needs mihomo's API (`external-controller`) and a group name; leave `watchdog_group` empty to use the group named by the config's final `MATCH` rule (else `Proxy`). If the router's dnsmasq forwards to mihomo's DNS port, a bypass takes that forward out of dnsmasq (the original server list is kept in `/etc/clashwrt-dns.bak` and put back when the bypass ends), so the LAN keeps resolving through the router's normal upstream. If that cannot be done (dnsmasq has no other upstream), DNS stays on mihomo and the Overview and Settings warn about it. Changing the watchdog or any setting that does not reach the firewall no longer reloads the ruleset.
 
 ### Setup wizard
 
