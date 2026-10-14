@@ -14,9 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # shellcheck and gettext ship with the runner image; node and python3 too.
+      # shellcheck, node and python3 ship with the runner image; msgfmt does not.
       - name: Tools
         run: |
+          set -o pipefail
+          sudo apt-get install -y -qq gettext >/dev/null
           shellcheck --version | head -n2
           msgfmt --version | head -n1
           node --version

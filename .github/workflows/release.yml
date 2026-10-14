@@ -24,6 +24,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Tools
+        run: sudo apt-get install -y -qq gettext >/dev/null
+
       - name: Check
         run: tools/check.sh "$GITHUB_REF_NAME"
 
